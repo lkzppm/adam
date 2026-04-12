@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "adam": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/adam-context-mcp/dist/index.js"]
+    }
+  }
+}

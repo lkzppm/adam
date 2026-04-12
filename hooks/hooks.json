@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "test -f spec/INDEX.md && (echo '[adam] Project spec index:'; cat spec/INDEX.md) || true"
+          }
+        ]
+      }
+    ]
+  }
+}

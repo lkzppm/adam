@@ -1,0 +1,51 @@
+<!-- adam-managed:start -->
+# adam ecosystem
+
+This project is managed by [`adam`](https://github.com/lkz/adam) — a meta-agent that scaffolds a personalized multi-agent dev ecosystem. This file is partly machine-managed; the block between `<!-- adam-managed:start -->` and `<!-- adam-managed:end -->` is rewritten by `/adam:setup`. Edit anywhere else freely.
+
+## Stack
+
+{{stack_summary}}
+
+## Agents
+
+{{agent_roster}}
+
+All agents live in `.claude/agents/*.md`. Each loads only its assigned specs via the `adam` MCP server — never read `spec/*.md` directly.
+
+## Spec indexing rules
+
+- Before dispatching work, call `mcp__adam__spec_index()` to see what specs exist.
+- The `spec/INDEX.md` table is authoritative. If it looks stale, run `/spec`.
+- Never `Read` a `spec/*.md` file directly. Delegate to the sub-agent whose `agents:` frontmatter includes that spec — the sub-agent will load it through the MCP server and token counts will stay synced.
+- If you need a new spec for a topic you can't find, run `/spec-create "<subject>"`.
+- If the spec folder has grown bloated or contradictory, run `/spec-dream`.
+
+## Parallel dispatch rules
+
+When a task touches multiple concerns, run the relevant specialists in parallel — don't sequence them in the main session. Use the best mechanism available to your current Claude Code session:
+
+- **If you're on Opus and agent teams are enabled** (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set in `.claude/settings.json`): spawn a team, one teammate per specialist, each in its own session/context window. Coordinate via the shared task list.
+- **Otherwise (Sonnet/Haiku, or teams not available)**: fall back to fanning out the sub-agents via the Agent/Task tool in a **single message with multiple tool calls**. Each sub-agent still runs in an isolated sub-context; you just lose the cross-teammate messaging. This is the normal, always-available path.
+
+Either way, the routing is the same:
+
+{{dispatch_examples}}
+
+Hard rules (both modes):
+
+- Never dispatch two agents that write to the same file in the same fan-out. Sequence them instead.
+- When unsure which agent owns something, ask `adam` — it's the arbiter.
+- Merge results into ≤3 bullets. No recap, no "I just did X" — the diffs speak for themselves.
+- If a sub-agent returns `out of scope, dispatch to <other>`, re-route the task; don't argue with it.
+
+## Token frugality
+
+Every sub-agent is instructed to:
+- Skip preambles, acknowledgements, and closing summaries.
+- Return ≤2 sentences of prose per response.
+- Load only the specs tagged for its role.
+- Use `path:line` references instead of quoting full file bodies.
+
+If you notice an agent emitting waste, edit its `.claude/agents/<name>.md` directly — the rules block is in each file.
+<!-- adam-managed:end -->

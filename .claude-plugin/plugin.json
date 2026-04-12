@@ -1,0 +1,12 @@
+{
+  "name": "adam",
+  "version": "0.1.0",
+  "description": "A meta-agent that bootstraps a personalized multi-agent dev ecosystem with spec-folder context management and tailored hooks.",
+  "author": {
+    "name": "lkz"
+  },
+  "homepage": "https://github.com/lkz/adam",
+  "repository": "https://github.com/lkz/adam",
+  "license": "MIT",
+  "keywords": ["claude-code", "agents", "multi-agent", "spec", "context", "orchestration"]
+}

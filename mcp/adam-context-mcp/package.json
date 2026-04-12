@@ -12,10 +12,10 @@
   "keywords": ["mcp", "claude-code", "adam", "spec", "context"],
   "author": "lkz",
   "license": "MIT",
-  "homepage": "https://github.com/lkz/adam",
+  "homepage": "https://github.com/lkzrat/adam",
   "repository": {
     "type": "git",
-    "url": "https://github.com/lkz/adam.git",
+    "url": "https://github.com/lkzrat/adam.git",
     "directory": "mcp/adam-context-mcp"
   },
   "dependencies": {

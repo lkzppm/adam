@@ -1,6 +1,6 @@
 # adam-context-mcp
 
-Bundled MCP server for the [`adam`](https://github.com/lkz/adam) Claude Code plugin. **Not published to npm** — it ships as part of the plugin and is started automatically via the plugin's `.mcp.json`.
+Bundled MCP server for the [`adam`](https://github.com/lkzrat/adam) Claude Code plugin. **Not published to npm** — it ships as part of the plugin and is started automatically via the plugin's `.mcp.json`.
 
 Exposes a project's `spec/` folder as four tools so agents can load only the context they need:
 

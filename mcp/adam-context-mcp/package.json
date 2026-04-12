@@ -1,0 +1,42 @@
+{
+  "name": "adam-context-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for the adam Claude Code plugin — exposes a project's spec/ folder as list/read/search tools with real token counts.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "adam-context-mcp": "dist/index.js",
+    "adam-reindex": "dist/reindex.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["mcp", "claude-code", "adam", "spec", "context"],
+  "author": "lkz",
+  "license": "MIT",
+  "homepage": "https://github.com/lkz/adam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lkz/adam.git",
+    "directory": "mcp/adam-context-mcp"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.19.0",
+    "gpt-tokenizer": "^2.9.0",
+    "gray-matter": "^4.0.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

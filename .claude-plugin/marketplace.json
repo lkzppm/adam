@@ -1,0 +1,13 @@
+{
+  "name": "adam",
+  "owner": {
+    "name": "lkz"
+  },
+  "plugins": [
+    {
+      "name": "adam",
+      "source": "./",
+      "description": "Meta-agent that scaffolds a personalized multi-agent dev ecosystem with spec-folder context management."
+    }
+  ]
+}

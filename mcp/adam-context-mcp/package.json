@@ -1,21 +1,13 @@
 {
   "name": "adam-context-mcp",
   "version": "0.1.0",
-  "description": "MCP server for the adam Claude Code plugin — exposes a project's spec/ folder as list/read/search tools with real token counts.",
+  "private": true,
+  "description": "Bundled MCP server for the adam Claude Code plugin — exposes a project's spec/ folder as list/read/search tools with real token counts. Not published to npm; ships as part of the plugin.",
   "type": "module",
   "main": "dist/index.js",
-  "bin": {
-    "adam-context-mcp": "dist/index.js",
-    "adam-reindex": "dist/reindex.js"
-  },
-  "files": [
-    "dist",
-    "README.md"
-  ],
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "prepublishOnly": "npm run build"
+    "start": "node dist/index.js"
   },
   "keywords": ["mcp", "claude-code", "adam", "spec", "context"],
   "author": "lkz",

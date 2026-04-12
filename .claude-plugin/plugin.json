@@ -5,8 +5,8 @@
   "author": {
     "name": "lkz"
   },
-  "homepage": "https://github.com/lkz/adam",
-  "repository": "https://github.com/lkz/adam",
+  "homepage": "https://github.com/lkzrat/adam",
+  "repository": "https://github.com/lkzrat/adam",
   "license": "MIT",
   "keywords": ["claude-code", "agents", "multi-agent", "spec", "context", "orchestration"]
 }

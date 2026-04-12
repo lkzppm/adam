@@ -11,7 +11,7 @@
 ## Quickstart
 
 ```
-/plugin marketplace add lkz/adam
+/plugin marketplace add lkzrat/adam
 /plugin install adam@adam
 /adam:setup
 ```

@@ -1,100 +1,79 @@
-# adam
+<p align="center">
+  <img src="public/AdamBanner.png" alt="adam" width="720" />
+</p>
 
-A Claude Code plugin that scaffolds a **personalized multi-agent dev ecosystem** inside any project. Instead of shipping a fixed roster of generic agents, `adam` is a single meta-agent that inspects your repo and writes stack-aware sub-agents, a project `CLAUDE.md`, and sensible hooks directly into your `.claude/` folder. It also manages a `spec/` folder of token-measured project knowledge that every sub-agent consults through a dedicated MCP server.
+<p align="center"><em>One meta-agent walks into your repo and walks out with a team that already knows your stack.</em></p>
 
-Two goals:
+---
 
-1. **Spend fewer tokens** — every generated sub-agent is instructed to skip preamble, skip recaps, and load only the specs it needs. Token counts come from a real tokenizer so `/spec-dream` can measurably trim waste.
-2. **Produce better results** — sub-agents run in parallel as an experimental Claude Code agent team, each in its own context window focused on one concern. Merging happens in the lead.
+`adam` is a Claude Code plugin. Run `/adam:setup` and it reads your codebase, decides which specialists the project actually needs, and writes a personalized roster of sub-agents, a routing block in `CLAUDE.md`, stack-aware hooks, and a `spec/` folder of token-measured project knowledge — directly into your repo. Nothing generic, nothing fixed. The point is to spend fewer tokens on boilerplate and get better answers from agents that each hold one concern in their own context window.
 
-## Install
+## Quickstart
 
 ```
 /plugin marketplace add lkz/adam
 /plugin install adam@adam
-```
-
-The bundled MCP server (`adam-context-mcp`) needs a one-time build:
-
-```bash
-cd ~/.claude/plugins/.../mcp/adam-context-mcp
-npm install
-npm run build
-```
-
-Then in any project:
-
-```
 /adam:setup
 ```
 
-That's it — adam scans your repo, generates sub-agents into `.claude/agents/`, writes or updates `CLAUDE.md` at the project root (inside a `<!-- adam-managed -->` block), merges stack-appropriate hooks into `.claude/settings.json`, and seeds a `spec/` folder.
+(First run: `cd ~/.claude/plugins/.../mcp/adam-context-mcp && npm install && npm run build` to build the bundled MCP server.)
+
+## What you get
+
+After `/adam:setup`, these files exist in your project:
+
+| path | what it is |
+|---|---|
+| `.claude/agents/*.md` | 3–6 sub-agents personalized to your actual stack — model, effort, scope, and terse-output rules picked per role. |
+| `CLAUDE.md` | Orchestrator rules inside an `<!-- adam-managed -->` block. Contains the stack summary, the agent roster, and parallel-dispatch routing examples. Your hand-written content outside the markers is untouched. |
+| `.claude/settings.json` | Merged in place. Adds `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` and only the hooks your stack justifies (prettier, eslint, tsc, ruff, black, rustfmt, gofmt). |
+| `spec/*.md` + `spec/INDEX.md` | Machine-maintained project knowledge. Each spec has YAML frontmatter with `agents`, `tags`, and a real `tokens` count. `INDEX.md` is regenerated, never hand-edited. |
 
 ## Commands
 
 | command | what it does |
 |---|---|
-| `/adam:setup` | Scan project, generate agents, write CLAUDE.md, merge hooks, seed spec/. Idempotent — safe to re-run. |
-| `/spec` | Scan project and create or update spec/*.md. Preserves hand-edits. |
-| `/spec-create "<subject>"` | Create one new spec on a subject, grounded in the repo. |
-| `/spec-dream` | Audit all specs for redundancy / stale content / preamble, rewrite them for minimum tokens, report the delta. |
+| `/adam:setup` | Scan project, generate agents, write `CLAUDE.md`, merge hooks, seed `spec/`. Idempotent — safe to re-run. |
+| `/spec` | Scan project and create or update `spec/*.md`. Preserves hand-edits; merges new findings into an `## Updates` section. |
+| `/spec-create "<subject>"` | Create one new spec on a subject, grounded in files the meta-agent actually read. |
+| `/spec-dream` | Audit every spec for redundancy, stale content, and preamble. Rewrite for minimum tokens. Report the delta. |
 
-## How it works
+## How it saves tokens
 
-### The spec folder
+Four mechanics, all concrete:
 
-`spec/` is machine-maintained project knowledge. Each file has YAML frontmatter:
+1. **Terse-output rules in every sub-agent.** Generated sub-agents inline `templates/rules/terse-output.md` into their system prompt: no preamble, no closing recap, ≤2 sentences of prose, `path:line` references, refuse out-of-scope tasks. You stop paying for "I'll now…" and "Let me know if…" on every call.
+2. **Specs loaded per-role, not per-session.** Each sub-agent's frontmatter lists only the specs its role cares about. The orchestrator sees `spec/INDEX.md` (titles + token counts, no bodies) through a `SessionStart` hook; bodies are pulled on demand via the MCP server.
+3. **Parallel dispatch with isolated context windows.** Cross-cutting work fans out — each teammate runs in its own context window on one concern, merged in the lead. A 4-teammate fan-out is four small prompts, not one bloated one.
+4. **`/spec-dream` measures real deltas.** Token counts come from `gpt-tokenizer` (o200k_base), not estimates. `/spec-dream` captures `before`, rewrites, reindexes, captures `after`, and prints `{before}t → {after}t ({delta}t saved, {pct}%)`.
 
-```yaml
----
-name: api-contract
-description: REST + websocket contract between web and api
-agents: [web-ui, api-server]
-tags: [api, auth]
-tokens: 412
-updated: 2026-04-12
----
+Real example from a Next.js portfolio with 6 specs:
+
+```
+| spec             | agents                                                 | tokens |
+|------------------|--------------------------------------------------------|--------|
+| build-and-deploy | deploy-vercel                                          |    364 |
+| contact-api      | api-routes, web-ui                                     |    183 |
+| landing-page     | web-ui                                                 |    340 |
+| overview         | web-ui, three-playground, terminal, api-routes, …      |    477 |
+| playgrounds      | three-playground                                       |    277 |
+| terminal         | terminal                                               |    248 |
+Total: 6 specs, 1889 tokens.
 ```
 
-`spec/INDEX.md` is a generated table mapping every spec to the agents that care about it. The plugin's `SessionStart` hook injects this index into the orchestrator's context — so the lead knows what specs exist without loading their bodies.
+The orchestrator sees that table. A `web-ui` teammate only loads `landing-page`, `contact-api`, and `overview` — it never pays for `playgrounds` or `build-and-deploy`.
 
-### The MCP server
+## Under the hood
 
-`adam-context-mcp` exposes four tools:
+- **`adam-context-mcp`** — stdio MCP server. Tools: `list_specs({ agent?, tag? })`, `read_spec({ name })`, `search_specs({ query, limit? })`, `spec_index()`. Token counts come from `gpt-tokenizer` (o200k_base), cached by file `mtime`. Spec dir is `./spec` by default, overridable with `ADAM_SPEC_DIR`.
+- **Meta-agent pattern.** There is one agent — `adam`, opus, high effort. It does not write application code. It generates project-local artifacts and delegates. This keeps the plugin itself small and forces every personalization decision to happen at setup time, inside a real repo scan.
+- **Reindex is a script, not a prompt.** `node mcp/adam-context-mcp/dist/reindex.js` walks `spec/*.md`, stamps real token counts into each file's frontmatter, and rewrites `spec/INDEX.md`. No LLM call, no drift between the table and the files.
+- **Agent teams, with a fallback.** On Opus sessions with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, cross-cutting tasks spawn a real [Claude Code agent team](https://code.claude.com/docs/en/agent-teams) with a shared task list. On Sonnet (where teams aren't available), adam falls back to Agent/Task fan-out — a single message with multiple tool calls, each sub-agent in its own isolated sub-context. You lose cross-teammate messaging, you keep the isolated windows.
 
-- `list_specs({ agent?, tag? })` — filtered list
-- `read_spec({ name })` — full markdown body
-- `search_specs({ query })` — keyword snippet search
-- `spec_index()` — structured dump
+## Publishing
 
-Token counts come from [`gpt-tokenizer`](https://www.npmjs.com/package/gpt-tokenizer) (o200k_base), cached by file mtime.
-
-### Generated sub-agents
-
-Every sub-agent adam writes into `.claude/agents/*.md` has:
-
-- A personalized description naming your actual stack.
-- `tools:` including `mcp__adam__*` so it can load its assigned specs.
-- A hard rules block: no preamble, no closing recap, ≤2 sentences of prose, `path:line` references, refuse out-of-scope tasks.
-- Model and effort picked by role (opus for architect, sonnet for coders, haiku for docs/tester).
-
-### Team-based parallel dispatch
-
-`/adam:setup` writes `"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"` into `.claude/settings.json`, so cross-cutting tasks fan out across a real [Claude Code agent team](https://code.claude.com/docs/en/agent-teams) — each teammate runs in its own session with its own context window, coordinating through a shared task list.
-
-## Tokenizer vs knowledge graph
-
-`adam` uses a **flat index with real token counts**, not a knowledge graph. For a markdown spec folder, a graph is overkill — the flat `agents: [...]` + `tags: [...]` mapping gives O(1) "who cares about this spec" lookups, and the tokenizer gives `/spec-dream` a real optimization target. If a project ever outgrows the flat model, the natural upgrade is adding a `links:` frontmatter field and letting the graph emerge lazily; embeddings in `search_specs` are a cheaper middle step.
-
-## The `adam-context-mcp` package
-
-The MCP server is also [published to npm](https://www.npmjs.com/package/adam-context-mcp) as a standalone package, so you can run it from any MCP host:
-
-```bash
-npm i -g adam-context-mcp
-adam-context-mcp   # reads ./spec from cwd
-```
+`adam` will be submitted to the Claude Code plugin marketplace. The MCP server ships bundled, but `adam-context-mcp` is also publishable as a standalone npm package — any MCP host that can read a `spec/` folder gets the same tools.
 
 ## License
 
-MIT © lkz
+MIT — lkz

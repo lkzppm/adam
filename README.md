@@ -16,7 +16,7 @@
 /adam:setup
 ```
 
-(First run: `cd ~/.claude/plugins/.../mcp/adam-context-mcp && npm install && npm run build` to build the bundled MCP server.)
+The MCP server ships pre-built — no `npm install` step, no build step. Install and go.
 
 ## What you get
 

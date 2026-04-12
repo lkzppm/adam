@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join, basename, relative } from "node:path";
 import matter from "gray-matter";

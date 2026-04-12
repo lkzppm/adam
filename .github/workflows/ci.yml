@@ -20,10 +20,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: mcp/adam-context-mcp/package-lock.json
 
-      - name: Install and build MCP server
+      - name: Install, typecheck, and bundle MCP server
         working-directory: mcp/adam-context-mcp
         run: |
           npm ci
+          npm run typecheck
           npm run build
 
       - name: Validate plugin manifests

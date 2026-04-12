@@ -1,6 +1,8 @@
 # adam-context-mcp
 
-MCP server for the [`adam`](https://github.com/lkz/adam) Claude Code plugin. Exposes a project's `spec/` folder as four tools so agents can load only the context they need:
+Bundled MCP server for the [`adam`](https://github.com/lkz/adam) Claude Code plugin. **Not published to npm** — it ships as part of the plugin and is started automatically via the plugin's `.mcp.json`.
+
+Exposes a project's `spec/` folder as four tools so agents can load only the context they need:
 
 - `list_specs({ agent?, tag? })` — list specs, optionally filtered
 - `read_spec({ name })` — full markdown body of one spec
@@ -9,21 +11,9 @@ MCP server for the [`adam`](https://github.com/lkz/adam) Claude Code plugin. Exp
 
 Token counts come from [`gpt-tokenizer`](https://www.npmjs.com/package/gpt-tokenizer) (o200k_base) and are cached by file mtime.
 
-## Install
+## Spec frontmatter
 
-```bash
-npm i -g adam-context-mcp
-```
-
-## Run
-
-```bash
-adam-context-mcp
-```
-
-Reads `./spec/*.md` from `cwd` by default. Override with `ADAM_SPEC_DIR=/path/to/spec adam-context-mcp`.
-
-Each spec file should have YAML frontmatter:
+Each `spec/<name>.md` file should have YAML frontmatter:
 
 ```yaml
 ---
@@ -36,11 +26,19 @@ updated: 2026-04-12
 ---
 ```
 
-`tokens:` is advisory — the server recomputes at read time from the body.
+`tokens:` is advisory — the server recomputes at read time from the body. `node dist/reindex.js` stamps real counts back into every file's frontmatter and rewrites `spec/INDEX.md`.
 
-## Use inside the adam plugin
+## Development
 
-If you installed the `adam` Claude Code plugin, this server is already bundled and registered via the plugin's `.mcp.json`. You don't need a separate install. This npm package exists for standalone use from other MCP hosts.
+If you are hacking on the MCP server itself:
+
+```bash
+cd mcp/adam-context-mcp
+npm install
+npm run build
+```
+
+The committed `dist/` is what the plugin actually runs. Rebuild and commit `dist/` whenever you touch `src/`.
 
 ## License
 

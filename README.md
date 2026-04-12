@@ -72,7 +72,7 @@ The orchestrator sees that table. A `web-ui` teammate only loads `landing-page`,
 
 ## Publishing
 
-`adam` will be submitted to the Claude Code plugin marketplace. The MCP server ships bundled, but `adam-context-mcp` is also publishable as a standalone npm package — any MCP host that can read a `spec/` folder gets the same tools.
+`adam` will be submitted to the Claude Code plugin marketplace. The MCP server ships bundled inside the plugin — no separate install, no npm package to manage.
 
 ## License
 

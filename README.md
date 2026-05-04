@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="#install"><img alt="install" src="https://img.shields.io/badge/install-%2Fplugin%20marketplace%20add-000?style=flat-square"></a>
-  <a href="bench/"><img alt="-29% cost" src="https://img.shields.io/badge/cost-%E2%88%9229%25%20vs%20baseline-2da44e?style=flat-square"></a>
+  <a href="bench/"><img alt="-25% cost" src="https://img.shields.io/badge/cost-%E2%88%9225%25%20vs%20baseline-2da44e?style=flat-square"></a>
   <a href="#commands"><img alt="commands" src="https://img.shields.io/badge/commands-5-111?style=flat-square"></a>
   <a href="#mcp-servers"><img alt="mcps" src="https://img.shields.io/badge/MCP-spec--lint%20%2B%20token--count-111?style=flat-square"></a>
   <a href="#license"><img alt="license" src="https://img.shields.io/badge/license-MIT-111?style=flat-square"></a>
@@ -18,7 +18,7 @@
 
 Claude Code reads `CLAUDE.md` on every session start. Most projects either don't have one, or stuff it with everything, or let it drift. **adam** turns `CLAUDE.md` into a tight brief plus a *curated index* of `spec/*.md` files — one spec per topic, refreshed on demand, sized to fit Claude's context budget.
 
-The result is a measurable speedup: across 6 `claude -p` runs against [`lkzppm/portifolio`](https://github.com/lkzppm/portifolio), Claude Code finished the same orientation + edit tasks in **−12% tokens, −29% cost, fewer turns** when adam had run first. The cost win is bigger than the token win because adam shifts Claude's context from expensive `cache_create` (file-by-file source reads) into cheap `cache_read` (one spec). [Full report in `bench/`.](bench/)
+The result is a measurable speedup: across **8 `claude -p` runs** against [`lkzppm/portifolio`](https://github.com/lkzppm/portifolio) (n=2 per task family), Claude Code finished the same orientation + edit tasks in **−16% tokens, −25% cost, −3 turns** when adam had run first. The cost win is bigger than the token win because adam shifts Claude's context from expensive `cache_create` (file-by-file source reads) into cheap `cache_read` (one spec). [Full report in `bench/`.](bench/)
 
 ## How it works
 
@@ -109,17 +109,17 @@ The plugin's `SessionStart` hook auto-installs `node_modules` into `${CLAUDE_PLU
 
 ## Benchmark — real numbers, real repo
 
-Six `claude -p --output-format json` runs against [lkzppm/portifolio](https://github.com/lkzppm/portifolio): two orientation tasks (n=2) and one code-edit task (n=1), each run against a vanilla copy and an adam-bootstrapped copy. [Full report + raw JSON in `bench/`.](bench/)
+Eight `claude -p --output-format json` runs against [lkzppm/portifolio](https://github.com/lkzppm/portifolio): four orientation tasks (n=2 paraphrases) and four code-edit tasks (n=2 distinct features), each run against a vanilla copy and an adam-bootstrapped copy. Same model (`sonnet`), same allowed tools, same machine. [Full report + raw JSON in `bench/`.](bench/)
 
-| | Tokens | Cost | Turns |
-|---|---:|---:|---:|
-| Baseline (6 runs) | 335,599 | $0.4604 | 14 |
-| With-adam (6 runs) | 294,585 | $0.3259 | 13 |
-| **Δ** | **−12.2%** | **−29.2%** | **−1** |
+| Task family | Baseline avg | With-adam avg | Δ tokens | Δ cost |
+|---|---:|---:|---:|---:|
+| Orientation (n=2) | 61,051 t / $0.1426 | 53,188 t / $0.0829 | **−12.9%** | **−41.8%** |
+| Code edit (n=2) | 208,495 t / $0.1644 | 172,402 t / $0.1475 | **−17.3%** | **−10.3%** |
+| **Total (8 runs)** | **539,092 t / $0.6139** | **451,180 t / $0.4608** | **−16.3%** | **−24.9%** |
 
-**Where the savings come from:** adam shifts Claude's context from expensive `cache_create` (per-file source reads) into cheap `cache_read` (one spec). The orientation case (T1b) is the most striking — with-adam used 14% *more* tokens but cost 56% *less* dollars, because the cache mix tilted heavily toward read-side hits.
+**Where the savings come from:** adam shifts Claude's context from expensive `cache_create` (per-file source reads) into cheap `cache_read` (one spec read once). One orientation run with-adam used 14% *more* tokens but cost 56% *less* dollars — the cache mix tilted heavily toward read-side hits, and `cache_read` is roughly 6× cheaper than `cache_create`.
 
-T2 (the code edit) also produced slightly more robust code on the with-adam side: defensive `?? []` guard, richer response shape. Both were functionally correct.
+The edit tasks also produced slightly more robust code on the with-adam side (defensive `?? []` guards, richer response shapes). All four edit runs were functionally correct.
 
 ## Preview — what the index looks like
 

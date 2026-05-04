@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="#install"><img alt="install" src="https://img.shields.io/badge/install-%2Fplugin%20marketplace%20add-000?style=flat-square"></a>
-  <a href="bench/"><img alt="-16.5% tokens" src="https://img.shields.io/badge/tokens-%E2%88%9216.5%25%20vs%20baseline-2da44e?style=flat-square"></a>
+  <a href="bench/"><img alt="-29% cost" src="https://img.shields.io/badge/cost-%E2%88%9229%25%20vs%20baseline-2da44e?style=flat-square"></a>
   <a href="#commands"><img alt="commands" src="https://img.shields.io/badge/commands-5-111?style=flat-square"></a>
   <a href="#mcp-servers"><img alt="mcps" src="https://img.shields.io/badge/MCP-spec--lint%20%2B%20token--count-111?style=flat-square"></a>
   <a href="#license"><img alt="license" src="https://img.shields.io/badge/license-MIT-111?style=flat-square"></a>
@@ -18,7 +18,7 @@
 
 Claude Code reads `CLAUDE.md` on every session start. Most projects either don't have one, or stuff it with everything, or let it drift. **adam** turns `CLAUDE.md` into a tight brief plus a *curated index* of `spec/*.md` files — one spec per topic, refreshed on demand, sized to fit Claude's context budget.
 
-The result is a measurable speedup: in [a real benchmark](bench/) against [`lkzppm/portifolio`](https://github.com/lkzppm/portifolio), Claude Code finished the same orientation + edit tasks in **−16.5% tokens, −10% cost, fewer turns** when adam had run first. (n=1 per cell — directional, not published. Reproduce script in `bench/README.md`.)
+The result is a measurable speedup: across 6 `claude -p` runs against [`lkzppm/portifolio`](https://github.com/lkzppm/portifolio), Claude Code finished the same orientation + edit tasks in **−12% tokens, −29% cost, fewer turns** when adam had run first. The cost win is bigger than the token win because adam shifts Claude's context from expensive `cache_create` (file-by-file source reads) into cheap `cache_read` (one spec). [Full report in `bench/`.](bench/)
 
 ## How it works
 
@@ -109,19 +109,48 @@ The plugin's `SessionStart` hook auto-installs `node_modules` into `${CLAUDE_PLU
 
 ## Benchmark — real numbers, real repo
 
-[Full report in `bench/README.md`.](bench/) Quick summary:
+Six `claude -p --output-format json` runs against [lkzppm/portifolio](https://github.com/lkzppm/portifolio): two orientation tasks (n=2) and one code-edit task (n=1), each run against a vanilla copy and an adam-bootstrapped copy. [Full report + raw JSON in `bench/`.](bench/)
 
-| | T1 (orientation) | T2 (code edit) | Total |
+| | Tokens | Cost | Turns |
 |---|---:|---:|---:|
-| Baseline tokens | 75,498 | 213,497 | **288,995** |
-| With-adam tokens | 53,091 | 188,210 | **241,301** |
-| **Δ** | −30% | −12% | **−16.5%** |
-| Cost Δ | −13% | −9% | **−10.2%** |
-| Turns Δ | −1 | −1 | −2 |
+| Baseline (6 runs) | 335,599 | $0.4604 | 14 |
+| With-adam (6 runs) | 294,585 | $0.3259 | 13 |
+| **Δ** | **−12.2%** | **−29.2%** | **−1** |
 
-**Where the savings come from:** Claude Code spends fewer cache reads — it doesn't have to grep the source tree to orient itself, because the spec index already says *which* file is relevant for *which* topic. T2 also produced slightly more robust code (defensive `?? []` guards, richer response shape) on the with-adam side.
+**Where the savings come from:** adam shifts Claude's context from expensive `cache_create` (per-file source reads) into cheap `cache_read` (one spec). The orientation case (T1b) is the most striking — with-adam used 14% *more* tokens but cost 56% *less* dollars, because the cache mix tilted heavily toward read-side hits.
 
-n=1 per cell. Reproduce script + raw `claude -p --output-format json` outputs are in `bench/results/`.
+T2 (the code edit) also produced slightly more robust code on the with-adam side: defensive `?? []` guard, richer response shape. Both were functionally correct.
+
+## Preview — what the index looks like
+
+After `/adam:setup` runs on the [portifolio](https://github.com/lkzppm/portifolio) project, `CLAUDE.md` becomes:
+
+```md
+# Lucas Pacheco — Portfolio
+
+Personal AI-engineer portfolio site. Single-page Next.js 14 App Router app deployed
+on Vercel. Includes a RAG-powered chat (/api/chat) that answers visitor questions
+about Lucas's projects/experience using a TF-IDF retriever and Groq's
+llama-3.3-70b-versatile for generation, plus tool-calling for fit-scoring.
+
+## Stack
+- Next.js 14 App Router on Vercel
+- TypeScript 5, Tailwind CSS, JetBrains Mono
+- Groq for LLM inference, Upstash Redis for rate limiting (in-memory fallback)
+- Three.js / WebGL playground components
+
+## Runtime shape
+[ASCII diagram of request flow]
+
+## Spec index
+| Spec | Read when… | Tokens |
+|------|-----------|--------|
+| spec/overview.md | Onboarding — site purpose, deploy target, repo layout | 749 |
+| spec/frontend.md | Touching layout/playground/terminal components, fonts, styling | 799 |
+| spec/chat-api.md | Editing /api/chat, RAG, MCP-style tools, rate limiter | 1196 |
+```
+
+The full sample (CLAUDE.md + 3 specs) is in [`bench/with-adam-CLAUDE.md`](bench/with-adam-CLAUDE.md) and [`bench/with-adam-spec/`](bench/with-adam-spec/).
 
 ## Compliance with the official Claude Code plugin spec
 

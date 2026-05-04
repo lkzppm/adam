@@ -50,7 +50,7 @@ AskUserQuestion({
     header: "Automations",
     multiSelect: true,
     options: [
-      { label: "ruff PostToolUse hook", description: "Auto-format Python on every Write/Edit. Adds to .claude/settings.json." },
+      { label: "ruff PostToolUse hook", description: "Auto-format Python on every Write/Edit. Writes .claude/hooks/ruff-format.sh and references it from .claude/settings.json." },
       { label: "py-test-runner agent",  description: "Sub-agent that runs pytest and triages failures." },
       { label: "fastapi-route-reviewer agent", description: "Reviews route files for auth/validation/errors." }
     ]
@@ -69,7 +69,7 @@ AskUserQuestion({
 
 For each item the user selected:
 
-- **Hooks** → merge into `.claude/settings.json` (read existing, splice in the new event entry, write back). Never overwrite — preserve unrelated hooks the user already has.
+- **Hooks** → write the command body to `.claude/hooks/<kebab-name>.sh` (with `#!/usr/bin/env bash` + `set -euo pipefail`, then `chmod +x`), then merge a `{ "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/<kebab-name>.sh" }` entry into `.claude/settings.json` under the right matcher (read existing, splice in, write back). Never inline command bodies into `settings.json`. Never overwrite — preserve unrelated hooks the user already has.
 - **Sub-agents** → write `.claude/agents/<kebab-name>.md` with proper frontmatter (`name`, `description` enumerating trigger phrases, `model`, optional `tools`).
 - **Skills** → write `.claude/skills/<kebab-name>/SKILL.md` with frontmatter and substantive instructions.
 
@@ -85,8 +85,9 @@ Two reports separated:
 
 ── Phase 2: project automations ──
 Created:
-  - .claude/agents/<name>.md — <one-line reason>
-  - .claude/settings.json     — <which hook events were added>
+  - .claude/agents/<name>.md  — <one-line reason>
+  - .claude/hooks/<name>.sh   — <one-line reason>
+  - .claude/settings.json     — <which hook events now reference which scripts>
 
 Skipped (user declined):
   - <name> — <one-line description>
@@ -103,6 +104,6 @@ Then close with:
 
 - Phase 2 must run AFTER phase 1 succeeds. If the agent fails to scaffold, do not proceed to suggestions.
 - Never create empty .claude/ files — only write what the user explicitly accepted.
-- Merge `.claude/settings.json`, never overwrite.
+- Merge `.claude/settings.json`, never overwrite. The actual command body for any hook lives in `.claude/hooks/<name>.sh`; `settings.json` only references it.
 - If the user has zero automations to suggest, say so and do not call AskUserQuestion at all (don't fake a question).
 - Do not commit. Leave the working tree dirty.

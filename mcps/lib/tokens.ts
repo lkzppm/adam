@@ -10,8 +10,9 @@
 
 import { encode } from "gpt-tokenizer/encoding/cl100k_base";
 
-export function countTokens(text) {
+export const ENCODING = "cl100k_base" as const;
+export type Encoding = typeof ENCODING;
+
+export function countTokens(text: string): number {
   return encode(text).length;
 }
-
-export const ENCODING = "cl100k_base";

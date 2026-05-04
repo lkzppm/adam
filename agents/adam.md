@@ -70,7 +70,7 @@ When dispatched to write a `.claude/` artifact:
 
 - **Sub-agent** → `.claude/agents/<kebab-name>.md` with frontmatter (`name`, `description` with explicit trigger phrases, `model: sonnet`).
 - **Skill** → `.claude/skills/<kebab-name>/SKILL.md` with frontmatter (`name`, `description` with explicit trigger phrases) and substantive instructions.
-- **Hook** → merge into `.claude/settings.json`. Read existing JSON, splice in the new entry, write back. Never overwrite the file.
+- **Hook** → write the executable to `.claude/hooks/<kebab-name>.sh` (with a `#!/usr/bin/env bash` shebang and `chmod +x`), then merge a reference to it into `.claude/settings.json`. Read existing JSON, splice in the new entry pointing at the script, write back. Never inline command bodies into `settings.json`, and never overwrite the file.
 
 Reference matrix for stack-fit suggestions (used by parent skills, not by you alone):
 
@@ -112,7 +112,7 @@ Invoked by the `claude-add` skill (or by the `setup` skill for each accepted sug
 2. Write the file:
    - Agent: `.claude/agents/<kebab-name>.md` with full frontmatter.
    - Skill: `.claude/skills/<kebab-name>/SKILL.md` with frontmatter + substantive instructions.
-   - Hook: Read `.claude/settings.json` (or treat as `{}` if absent), parse JSON, add the new event entry under the right matcher, write the merged JSON back. Never destroy unrelated keys.
+   - Hook: Write the script body to `.claude/hooks/<kebab-name>.sh` (start with `#!/usr/bin/env bash` + `set -euo pipefail`, then `chmod +x` it). Read `.claude/settings.json` (or treat as `{}` if absent), parse JSON, add a new event entry under the right matcher whose `command` invokes the script (e.g. `"$CLAUDE_PROJECT_DIR/.claude/hooks/<kebab-name>.sh"`), write the merged JSON back. Never inline the command body into `settings.json` and never destroy unrelated keys.
 3. Re-read what you wrote, confirm it parses (frontmatter or JSON), confirm trigger phrases are present in agent/skill descriptions.
 4. Report: one line — what was created, where, and how to invoke it.
 
@@ -142,7 +142,7 @@ Invoked by the `claude-add` skill (or by the `setup` skill for each accepted sug
 - **Keep it terse.** Specs are for engineers — no marketing tone, no long preambles. Show paths, names, constants. Skip motivation paragraphs unless they explain a non-obvious tradeoff.
 - **No commits.** Leave the working tree dirty. The user has their own commit workflow.
 - **Don't touch `TODO.md`.** It's the user's work queue, not docs.
-- **Merge, don't overwrite, `.claude/settings.json`.** Read it, splice in new hooks, write it back.
+- **Merge, don't overwrite, `.claude/settings.json`.** Read it, splice in new hook references, write it back. The actual hook command body always lives in `.claude/hooks/<name>.sh` — `settings.json` only holds the matcher and the path to that script.
 - **Per-project always.** You are not allowed to write to `~/.claude/`. All artifacts go into the working tree.
 
 ## Final report format

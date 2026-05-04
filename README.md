@@ -32,8 +32,9 @@ your repo                                        ┌─────────�
    │                     writes specs)           │     INDEX.md             │
    │                                             │ .claude/                 │
    │                              + AskUserQuestion │   agents/*.md         │
-   │                              ─────────────► │   settings.json (hooks) │
-   │                              "want these?"  └──────────────────────────┘
+   │                              ─────────────► │   hooks/*.sh             │
+   │                              "want these?"  │   settings.json          │
+   │                                             └──────────────────────────┘
 ```
 
 `/adam:setup` runs in two phases:
@@ -48,7 +49,7 @@ After setup, four small commands keep the system honest:
 | command | what it does |
 |---|---|
 | `/adam:setup` | One-time bootstrap. Scaffolds `spec/`, rewrites `CLAUDE.md`, then prompts (multi-select) to add stack-tailored hooks/skills/sub-agents. |
-| `/adam:claude-add [agent\|skill\|hook] [description]` | Add **one** automation to `.claude/`. Asks for missing details. Merges `.claude/settings.json`, never overwrites. |
+| `/adam:claude-add [agent\|skill\|hook] [description]` | Add **one** automation to `.claude/`. Asks for missing details. Hooks are written as executable scripts in `.claude/hooks/<name>.sh` and referenced from `.claude/settings.json` (merged, never overwritten). |
 | `/adam:spec-create <topic>` | Add a new `spec/<topic>.md` when a fresh concept enters the project. Re-weaves the index. |
 | `/adam:spec-update [path]` | Drift refresh — verify specs against current code, rewrite stale ones, refresh the index + token counts. Whole tree, or one spec. |
 | `/adam:spec-audit` | Read-only health check. Reports issues without rewriting. |
@@ -67,7 +68,8 @@ your-project/
 │   └── ...
 └── .claude/                          # only if you opted in during setup
     ├── agents/<name>.md              # tailored sub-agents
-    └── settings.json                 # merged hooks (existing keys preserved)
+    ├── hooks/<name>.sh                # hook scripts (executable, one per hook)
+    └── settings.json                 # merged hook references (existing keys preserved)
 ```
 
 Specs are **self-contained for one topic** — backend conventions, frontend patterns, an integration's auth quirks, a subsystem's pipeline. Each one says *when to read it* in its description, so Claude pulls only what's needed.

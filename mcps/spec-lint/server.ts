@@ -17,34 +17,69 @@ const TOKEN_WARN = 4000;
 const TOKEN_ERROR = 6000;
 const CLAUDE_MD_TOKEN_WARN = 2000;
 
-function parseFrontmatter(text) {
+type Frontmatter = Record<string, string>;
+
+interface MarkdownLink {
+  text: string;
+  target: string;
+}
+
+interface TableRow {
+  label: string;
+  path: string;
+  description: string;
+  tokens: string | null;
+}
+
+interface SpecData {
+  path: string;
+  text: string;
+  fm: Frontmatter | null;
+  tokens: number;
+}
+
+interface TokenSummaryEntry {
+  file: string;
+  tokens: number;
+}
+
+interface LintResult {
+  ok: boolean;
+  errors: string[];
+  warnings: string[];
+  info: string[];
+  tokenSummary: TokenSummaryEntry[];
+  indexRows: TableRow[];
+}
+
+function parseFrontmatter(text: string): Frontmatter | null {
   const match = text.match(/^---\n([\s\S]*?)\n---/);
   if (!match) return null;
-  const fm = {};
-  for (const line of match[1].split("\n")) {
+  const fm: Frontmatter = {};
+  for (const line of match[1]!.split("\n")) {
     const m = line.match(/^([a-zA-Z_][\w-]*):\s*(.*)$/);
-    if (m) fm[m[1]] = m[2].trim();
+    if (m) fm[m[1]!] = m[2]!.trim();
   }
   return fm;
 }
 
-function extractMarkdownLinks(text) {
-  const links = [];
+function extractMarkdownLinks(text: string): MarkdownLink[] {
+  const links: MarkdownLink[] = [];
   const re = /\[([^\]]*)\]\(([^)]+)\)/g;
-  let m;
+  let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
-    links.push({ text: m[1], target: m[2] });
+    links.push({ text: m[1]!, target: m[2]! });
   }
   return links;
 }
 
-function extractTableSpecRows(claudeMd) {
+function extractTableSpecRows(claudeMd: string): TableRow[] {
   // Find the spec index table — heuristic: a markdown table whose header row contains "Spec" and "Read when".
   const lines = claudeMd.split("\n");
-  const rows = [];
+  const rows: TableRow[] = [];
   let inTable = false;
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const line = lines[i]!;
     if (!inTable) {
       if (/^\|.*Spec.*\|.*Read when/i.test(line)) {
         inTable = true;
@@ -60,16 +95,16 @@ function extractTableSpecRows(claudeMd) {
       const cells = line
         .split("|")
         .map((c) => c.trim())
-        .filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
+        .filter((_c, idx, arr) => idx > 0 && idx < arr.length - 1);
       if (cells.length >= 2) {
         // Extract first link in cell 0 — that's the spec path
-        const linkMatch = cells[0].match(/\[([^\]]*)\]\(([^)]+)\)/);
+        const linkMatch = cells[0]!.match(/\[([^\]]*)\]\(([^)]+)\)/);
         if (linkMatch) {
           rows.push({
-            label: linkMatch[1],
-            path: linkMatch[2],
-            description: cells[1],
-            tokens: cells[2] || null,
+            label: linkMatch[1]!,
+            path: linkMatch[2]!,
+            description: cells[1]!,
+            tokens: cells[2] ?? null,
           });
         }
       }
@@ -78,17 +113,17 @@ function extractTableSpecRows(claudeMd) {
   return rows;
 }
 
-async function listSpecFiles(specDir) {
+async function listSpecFiles(specDir: string): Promise<string[]> {
   if (!existsSync(specDir)) return [];
   const entries = await readdir(specDir);
   return entries.filter((e) => e.endsWith(".md") && e !== "INDEX.md");
 }
 
-async function lint(projectRoot) {
+async function lint(projectRoot: string): Promise<LintResult> {
   const root = resolve(projectRoot);
-  const errors = [];
-  const warnings = [];
-  const info = [];
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const info: string[] = [];
 
   const specDir = join(root, "spec");
   const claudeMdPath = join(root, "CLAUDE.md");
@@ -117,7 +152,7 @@ async function lint(projectRoot) {
   }
 
   // 4. Each spec has frontmatter; check token sizes
-  const specsByName = {};
+  const specsByName: Record<string, SpecData> = {};
   for (const file of specFiles) {
     const fpath = join(specDir, file);
     const text = await readFile(fpath, "utf8");
@@ -128,7 +163,7 @@ async function lint(projectRoot) {
     if (!fm) {
       warnings.push(`spec/${file} has no YAML frontmatter`);
     } else {
-      for (const required of ["name", "description", "updated"]) {
+      for (const required of ["name", "description", "updated"] as const) {
         if (!fm[required]) {
           warnings.push(`spec/${file} frontmatter missing '${required}' field`);
         }
@@ -153,13 +188,13 @@ async function lint(projectRoot) {
       const tgt = link.target;
       if (tgt.startsWith("http") || tgt.startsWith("#") || tgt.startsWith("mailto:")) continue;
       // Resolve relative to the spec file
-      let resolved;
+      let resolved: string;
       if (tgt.startsWith("./") || tgt.startsWith("../")) {
-        resolved = resolve(specDir, tgt.split("#")[0]);
+        resolved = resolve(specDir, tgt.split("#")[0]!);
       } else if (tgt.startsWith("/")) {
-        resolved = resolve(root, "." + tgt.split("#")[0]);
+        resolved = resolve(root, "." + tgt.split("#")[0]!);
       } else {
-        resolved = resolve(specDir, tgt.split("#")[0]);
+        resolved = resolve(specDir, tgt.split("#")[0]!);
       }
       if (!existsSync(resolved)) {
         warnings.push(`spec/${file} has broken link: ${link.target}`);
@@ -168,7 +203,7 @@ async function lint(projectRoot) {
   }
 
   // 6. CLAUDE.md ↔ spec/ consistency
-  let claudeMdRows = [];
+  let claudeMdRows: TableRow[] = [];
   let claudeMdTokens = 0;
   if (existsSync(claudeMdPath)) {
     const claudeMd = await readFile(claudeMdPath, "utf8");
@@ -189,7 +224,7 @@ async function lint(projectRoot) {
 
     // Every spec/*.md (excluding INDEX) should be referenced
     const referenced = new Set(
-      claudeMdRows.map((r) => r.path.replace(/^\.\//, "")).map((p) => p.split("/").pop()),
+      claudeMdRows.map((r) => r.path.replace(/^\.\//, "")).map((p) => p.split("/").pop()!),
     );
     for (const file of specFiles) {
       if (!referenced.has(file)) {
@@ -228,6 +263,15 @@ async function lint(projectRoot) {
   return finalize({ errors, warnings, info, specsByName, claudeMdRows, claudeMdTokens });
 }
 
+interface FinalizeArgs {
+  errors: string[];
+  warnings: string[];
+  info: string[];
+  specsByName?: Record<string, SpecData>;
+  claudeMdRows?: TableRow[];
+  claudeMdTokens?: number;
+}
+
 function finalize({
   errors,
   warnings,
@@ -235,8 +279,8 @@ function finalize({
   specsByName = {},
   claudeMdRows = [],
   claudeMdTokens = 0,
-}) {
-  const tokenSummary = Object.entries(specsByName).map(([file, s]) => ({
+}: FinalizeArgs): LintResult {
+  const tokenSummary: TokenSummaryEntry[] = Object.entries(specsByName).map(([file, s]) => ({
     file: `spec/${file}`,
     tokens: s.tokens,
   }));
@@ -278,7 +322,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
   if (name !== "lint") throw new Error(`Unknown tool: ${name}`);
-  const root = args.path || process.cwd();
+  const a = (args ?? {}) as { path?: string };
+  const root = a.path ?? process.cwd();
   const result = await lint(root);
   return {
     content: [{ type: "text", text: JSON.stringify(result, null, 2) }],

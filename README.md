@@ -152,6 +152,14 @@ llama-3.3-70b-versatile for generation, plus tool-calling for fit-scoring.
 
 The full sample (CLAUDE.md + 3 specs) is in [`bench/with-adam-CLAUDE.md`](bench/with-adam-CLAUDE.md) and [`bench/with-adam-spec/`](bench/with-adam-spec/).
 
+## Limitations
+
+- **The benchmark is small** (n=2 per task family). The trend was consistent across both pairs but real published numbers want n≥10. Reproduce script + raw JSON in `bench/` so you can run more.
+- **Spec quality matters.** A poorly written spec helps less or even hurts. The `spec-lint` MCP catches the obvious failure modes; the meta-agent is told to keep specs under 5,000 tokens and to ground them in real symbols. Beyond that, garbage in / garbage out.
+- **adam doesn't run your tests** or check that the resulting code compiles. It's a documentation + automation scaffolder, not a verifier. Pair it with whatever test/typecheck hooks you already use.
+- **`.claude/` artifacts are suggestions, not guarantees.** The setup flow proposes hooks/agents based on detected stack, but only writes what you accept via the multi-select prompt. You stay in control.
+- **Markdown-only repos.** adam was designed for code repos with a recognizable stack. It also works on docs-only or research repos, but the heuristics that drive subsystem detection are weaker there.
+
 ## Compliance with the official Claude Code plugin spec
 
 Verified against [code.claude.com/docs/en/plugins-reference](https://code.claude.com/docs/en/plugins-reference):

@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install MCP dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate plugin manifests
+        run: |
+          node -e "for (const f of ['.claude-plugin/plugin.json','.claude-plugin/marketplace.json','.mcp.json','hooks/hooks.json']) { JSON.parse(require('fs').readFileSync(f,'utf8')); console.log('ok:', f); }"
+
+      - name: Smoke-test MCP servers
+        run: |
+          chmod +x scripts/smoke-test.sh
+          NODE_PATH="$PWD/node_modules" ./scripts/smoke-test.sh "$PWD"

@@ -1,0 +1,13 @@
+{
+  "name": "adam",
+  "owner": {
+    "name": "lkzppm"
+  },
+  "plugins": [
+    {
+      "name": "adam",
+      "source": "./",
+      "description": "Spec-driven dev ecosystem for Claude Code. Turns CLAUDE.md into a curated index of spec/*.md files; meta-agent scaffolds per-project specs, agents, and hooks tailored to the detected stack. Bundles offline token-counting (gpt-tokenizer cl100k_base) and a spec-lint MCP."
+    }
+  ]
+}

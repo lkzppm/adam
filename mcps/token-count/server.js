@@ -12,10 +12,7 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { countTokens, ENCODING } from "../lib/tokens.js";
@@ -48,8 +45,15 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object",
         properties: {
-          path: { type: "string", description: "Absolute or working-directory-relative file path. Mutually exclusive with `text`." },
-          text: { type: "string", description: "Raw text to count. Mutually exclusive with `path`." },
+          path: {
+            type: "string",
+            description:
+              "Absolute or working-directory-relative file path. Mutually exclusive with `text`.",
+          },
+          text: {
+            type: "string",
+            description: "Raw text to count. Mutually exclusive with `path`.",
+          },
         },
       },
     },
@@ -93,8 +97,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (!Array.isArray(args.paths)) throw new Error("`paths` must be an array.");
     const results = await Promise.all(
       args.paths.map(async (p) => {
-        try { return await countPath(p); }
-        catch (err) { return { path: p, error: err.message }; }
+        try {
+          return await countPath(p);
+        } catch (err) {
+          return { path: p, error: err.message };
+        }
       }),
     );
     return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };

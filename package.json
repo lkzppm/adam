@@ -4,8 +4,23 @@
   "description": "Shared dependencies for the adam plugin's MCP servers (spec-lint, token-count). Installed into ${CLAUDE_PLUGIN_DATA}/node_modules by the SessionStart hook so it survives plugin updates.",
   "private": true,
   "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "gpt-tokenizer": "^2.4.0"
+    "gpt-tokenizer": "^2.4.0",
+    "tsx": "^4.7.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@types/node": "^20.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.4.0",
+    "typescript-eslint": "^8.0.0"
   }
 }

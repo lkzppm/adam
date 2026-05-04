@@ -12,15 +12,25 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
-import { countTokens, ENCODING } from "../lib/tokens.js";
+import { countTokens, ENCODING, type Encoding } from "../lib/tokens.js";
 
-async function countPath(path) {
+interface CountResult {
+  path: string | null;
+  bytes: number | null;
+  chars: number;
+  tokens: number;
+  encoding: Encoding;
+}
+
+interface ManyResultError {
+  path: string;
+  error: string;
+}
+
+async function countPath(path: string): Promise<CountResult> {
   const abs = resolve(path);
   const s = await stat(abs);
   if (!s.isFile()) throw new Error(`Not a file: ${path}`);
@@ -48,8 +58,15 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object",
         properties: {
-          path: { type: "string", description: "Absolute or working-directory-relative file path. Mutually exclusive with `text`." },
-          text: { type: "string", description: "Raw text to count. Mutually exclusive with `path`." },
+          path: {
+            type: "string",
+            description:
+              "Absolute or working-directory-relative file path. Mutually exclusive with `text`.",
+          },
+          text: {
+            type: "string",
+            description: "Raw text to count. Mutually exclusive with `path`.",
+          },
         },
       },
     },
@@ -60,7 +77,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object",
         properties: {
-          paths: { type: "array", items: { type: "string" }, description: "List of file paths." },
+          paths: {
+            type: "array",
+            items: { type: "string" },
+            description: "List of file paths.",
+          },
         },
         required: ["paths"],
       },
@@ -70,31 +91,33 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
+  const a = (args ?? {}) as { path?: string; text?: string; paths?: unknown };
 
   if (name === "count") {
-    if (args.path && args.text) throw new Error("Provide either `path` or `text`, not both.");
-    if (!args.path && !args.text) throw new Error("Provide either `path` or `text`.");
-    let result;
-    if (args.path) {
-      result = await countPath(args.path);
-    } else {
-      result = {
-        path: null,
-        bytes: null,
-        chars: args.text.length,
-        tokens: countTokens(args.text),
-        encoding: ENCODING,
-      };
-    }
+    if (a.path && a.text) throw new Error("Provide either `path` or `text`, not both.");
+    if (!a.path && a.text === undefined) throw new Error("Provide either `path` or `text`.");
+    const result: CountResult = a.path
+      ? await countPath(a.path)
+      : {
+          path: null,
+          bytes: null,
+          chars: a.text!.length,
+          tokens: countTokens(a.text!),
+          encoding: ENCODING,
+        };
     return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
   }
 
   if (name === "count_many") {
-    if (!Array.isArray(args.paths)) throw new Error("`paths` must be an array.");
-    const results = await Promise.all(
-      args.paths.map(async (p) => {
-        try { return await countPath(p); }
-        catch (err) { return { path: p, error: err.message }; }
+    if (!Array.isArray(a.paths)) throw new Error("`paths` must be an array.");
+    const paths = a.paths as string[];
+    const results: (CountResult | ManyResultError)[] = await Promise.all(
+      paths.map(async (p) => {
+        try {
+          return await countPath(p);
+        } catch (err) {
+          return { path: p, error: err instanceof Error ? err.message : String(err) };
+        }
       }),
     );
     return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };

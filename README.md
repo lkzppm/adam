@@ -32,8 +32,9 @@ your repo                                        ┌─────────�
    │                     writes specs)           │     INDEX.md             │
    │                                             │ .claude/                 │
    │                              + AskUserQuestion │   agents/*.md         │
-   │                              ─────────────► │   settings.json (hooks) │
-   │                              "want these?"  └──────────────────────────┘
+   │                              ─────────────► │   hooks/*.sh             │
+   │                              "want these?"  │   settings.json          │
+   │                                             └──────────────────────────┘
 ```
 
 `/adam:setup` runs in two phases:
@@ -48,7 +49,7 @@ After setup, four small commands keep the system honest:
 | command | what it does |
 |---|---|
 | `/adam:setup` | One-time bootstrap. Scaffolds `spec/`, rewrites `CLAUDE.md`, then prompts (multi-select) to add stack-tailored hooks/skills/sub-agents. |
-| `/adam:claude-add [agent\|skill\|hook] [description]` | Add **one** automation to `.claude/`. Asks for missing details. Merges `.claude/settings.json`, never overwrites. |
+| `/adam:claude-add [agent\|skill\|hook] [description]` | Add **one** automation to `.claude/`. Asks for missing details. Hooks are written as executable scripts in `.claude/hooks/<name>.sh` and referenced from `.claude/settings.json` (merged, never overwritten). |
 | `/adam:spec-create <topic>` | Add a new `spec/<topic>.md` when a fresh concept enters the project. Re-weaves the index. |
 | `/adam:spec-update [path]` | Drift refresh — verify specs against current code, rewrite stale ones, refresh the index + token counts. Whole tree, or one spec. |
 | `/adam:spec-audit` | Read-only health check. Reports issues without rewriting. |
@@ -67,14 +68,15 @@ your-project/
 │   └── ...
 └── .claude/                          # only if you opted in during setup
     ├── agents/<name>.md              # tailored sub-agents
-    └── settings.json                 # merged hooks (existing keys preserved)
+    ├── hooks/<name>.sh                # hook scripts (executable, one per hook)
+    └── settings.json                 # merged hook references (existing keys preserved)
 ```
 
 Specs are **self-contained for one topic** — backend conventions, frontend patterns, an integration's auth quirks, a subsystem's pipeline. Each one says *when to read it* in its description, so Claude pulls only what's needed.
 
 ## MCP servers
 
-Two MCPs ship with the plugin and start on session start:
+Two MCPs ship with the plugin (TypeScript, run via `tsx`) and start on session start:
 
 | Server | Tool | What it does |
 |---|---|---|
@@ -188,10 +190,11 @@ adam/
 ├── skills/                                    # natural-language entrypoints
 │   ├── setup/  ·  claude-add/
 │   └── spec-{create,update,audit}/
-├── mcps/
-│   ├── lib/tokens.js                          # shared gpt-tokenizer wrapper
-│   ├── spec-lint/server.js
-│   └── token-count/server.js
+├── mcps/                                      # TypeScript sources, run via tsx
+│   ├── lib/tokens.ts                          # shared gpt-tokenizer wrapper
+│   ├── spec-lint/server.ts
+│   └── token-count/server.ts
+├── tsconfig.json                              # strict TS config (typecheck via tsc --noEmit)
 ├── scripts/smoke-test.sh                      # standalone MCP smoke test
 ├── bench/                                     # the comparison vs portifolio
 └── public/AdamBanner.png

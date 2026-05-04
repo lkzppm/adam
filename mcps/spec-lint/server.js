@@ -7,13 +7,10 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { readdir, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { countTokens } from "../lib/tokens.js";
 
 const TOKEN_WARN = 4000;
@@ -60,7 +57,10 @@ function extractTableSpecRows(claudeMd) {
         inTable = false;
         continue;
       }
-      const cells = line.split("|").map((c) => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
+      const cells = line
+        .split("|")
+        .map((c) => c.trim())
+        .filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
       if (cells.length >= 2) {
         // Extract first link in cell 0 — that's the spec path
         const linkMatch = cells[0].match(/\[([^\]]*)\]\(([^)]+)\)/);
@@ -136,15 +136,19 @@ async function lint(projectRoot) {
     }
 
     if (tokens > TOKEN_ERROR) {
-      errors.push(`spec/${file} is ${tokens} tokens — exceeds hard ceiling ${TOKEN_ERROR} (split into multiple specs)`);
+      errors.push(
+        `spec/${file} is ${tokens} tokens — exceeds hard ceiling ${TOKEN_ERROR} (split into multiple specs)`,
+      );
     } else if (tokens > TOKEN_WARN) {
-      warnings.push(`spec/${file} is ${tokens} tokens — exceeds soft ceiling ${TOKEN_WARN} (consider splitting)`);
+      warnings.push(
+        `spec/${file} is ${tokens} tokens — exceeds soft ceiling ${TOKEN_WARN} (consider splitting)`,
+      );
     }
   }
 
   // 5. Cross-reference resolution within spec/*.md
-  for (const [file, info] of Object.entries(specsByName)) {
-    const links = extractMarkdownLinks(info.text);
+  for (const [file, spec] of Object.entries(specsByName)) {
+    const links = extractMarkdownLinks(spec.text);
     for (const link of links) {
       const tgt = link.target;
       if (tgt.startsWith("http") || tgt.startsWith("#") || tgt.startsWith("mailto:")) continue;
@@ -172,18 +176,20 @@ async function lint(projectRoot) {
     claudeMdRows = extractTableSpecRows(claudeMd);
 
     if (claudeMdRows.length === 0) {
-      errors.push("CLAUDE.md does not contain a spec index table (expected a markdown table with 'Spec' and 'Read when' columns)");
+      errors.push(
+        "CLAUDE.md does not contain a spec index table (expected a markdown table with 'Spec' and 'Read when' columns)",
+      );
     }
 
     if (claudeMdTokens > CLAUDE_MD_TOKEN_WARN) {
-      warnings.push(`CLAUDE.md is ${claudeMdTokens} tokens — exceeds ${CLAUDE_MD_TOKEN_WARN} soft ceiling. CLAUDE.md is a brief, push detail into specs.`);
+      warnings.push(
+        `CLAUDE.md is ${claudeMdTokens} tokens — exceeds ${CLAUDE_MD_TOKEN_WARN} soft ceiling. CLAUDE.md is a brief, push detail into specs.`,
+      );
     }
 
     // Every spec/*.md (excluding INDEX) should be referenced
     const referenced = new Set(
-      claudeMdRows
-        .map((r) => r.path.replace(/^\.\//, ""))
-        .map((p) => p.split("/").pop()),
+      claudeMdRows.map((r) => r.path.replace(/^\.\//, "")).map((p) => p.split("/").pop()),
     );
     for (const file of specFiles) {
       if (!referenced.has(file)) {
@@ -222,7 +228,14 @@ async function lint(projectRoot) {
   return finalize({ errors, warnings, info, specsByName, claudeMdRows, claudeMdTokens });
 }
 
-function finalize({ errors, warnings, info, specsByName = {}, claudeMdRows = [], claudeMdTokens = 0 }) {
+function finalize({
+  errors,
+  warnings,
+  info,
+  specsByName = {},
+  claudeMdRows = [],
+  claudeMdTokens = 0,
+}) {
   const tokenSummary = Object.entries(specsByName).map(([file, s]) => ({
     file: `spec/${file}`,
     tokens: s.tokens,

@@ -13,7 +13,7 @@ Add **one** Claude Code automation to the project's `.claude/` directory. Ground
 |---|---|
 | `agent <description>` | Create one sub-agent in `.claude/agents/`. |
 | `skill <description>` | Create one skill in `.claude/skills/<name>/SKILL.md`. |
-| `hook <event> <description>` | Add one entry to `.claude/settings.json` (merged, not overwritten). |
+| `hook <event> <description>` | Write `.claude/hooks/<name>.sh` and add an entry to `.claude/settings.json` that references it (merged, not overwritten). |
 | (no args / unclear) | Ask via `AskUserQuestion`: which kind, then what it should do. |
 
 ## Process
@@ -29,7 +29,7 @@ Add **one** Claude Code automation to the project's `.claude/` directory. Ground
        options: [
          { label: "Sub-agent", description: "A specialized agent Claude can spawn for a focused task. Lives in .claude/agents/<name>.md." },
          { label: "Skill",     description: "A natural-language-triggered procedure with its own instructions. Lives in .claude/skills/<name>/SKILL.md." },
-         { label: "Hook",      description: "Event handler that runs a command (e.g. lint on file write). Adds an entry to .claude/settings.json." }
+         { label: "Hook",      description: "Event handler that runs a command (e.g. lint on file write). Writes a script to .claude/hooks/<name>.sh and references it from .claude/settings.json." }
        ]
      }]
    })
@@ -64,25 +64,35 @@ Add **one** Claude Code automation to the project's `.claude/` directory. Ground
      <substantive instructions>
      ```
 
-   - **Hook** — merge into `.claude/settings.json`. Standard Claude Code hooks shape, e.g.:
+   - **Hook** — write the executable script to `.claude/hooks/<kebab-name>.sh`, then merge a reference to it into `.claude/settings.json`. The script holds the actual command body; `settings.json` only points at it.
+
+     Script (`.claude/hooks/ruff-format.sh`, `chmod +x`):
+
+     ```bash
+     #!/usr/bin/env bash
+     set -euo pipefail
+     ruff format "$CLAUDE_FILE_PATH"
+     ```
+
+     Settings entry (merged into `.claude/settings.json`):
 
      ```
      {
        "hooks": {
          "PostToolUse": [
            { "matcher": "Write|Edit",
-             "hooks": [{ "type": "command", "command": "ruff format $CLAUDE_FILE_PATH" }] }
+             "hooks": [{ "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/ruff-format.sh" }] }
          ]
        }
      }
      ```
 
-     Read the existing `.claude/settings.json` first; preserve every key that's not part of this new entry; pretty-print the result.
+     Read the existing `.claude/settings.json` first; preserve every key that's not part of this new entry; pretty-print the result. Never inline the command body into `settings.json` — always route through a script in `.claude/hooks/`.
 
 5. **Verify.** After writing:
 
    - For agents/skills: re-read the file you just wrote, confirm frontmatter parses, confirm the description includes trigger phrases.
-   - For hooks: re-read `.claude/settings.json`, confirm valid JSON.
+   - For hooks: re-read `.claude/settings.json`, confirm valid JSON; confirm `.claude/hooks/<name>.sh` exists, is executable (`chmod +x`), and the `command` in settings points at it.
 
 6. **Report.** One line per artifact created, plus a usage hint:
 
@@ -93,6 +103,7 @@ Add **one** Claude Code automation to the project's `.claude/` directory. Ground
 - One artifact per invocation. If the user asks for multiple, do them sequentially with one report each, or politely point them at `/adam:setup --force` for a batch.
 - Never overwrite an existing `.claude/agents/<name>.md` or `.claude/skills/<name>/SKILL.md` without explicit confirmation. If a name collides, append a suffix (`-v2`) or ask via `AskUserQuestion`.
 - Always **merge** `.claude/settings.json` — never overwrite. Use a JSON parser (e.g. read with Read, parse, mutate, stringify, Write).
-- Hooks must use `${CLAUDE_PLUGIN_ROOT}` substitutions only if the script actually lives in a plugin — for project-local hooks, plain paths or `$CLAUDE_FILE_PATH` are correct.
+- The hook command body always lives in `.claude/hooks/<name>.sh` (executable, with shebang). `settings.json` only holds the matcher + a `command` that invokes that script. Never inline a multi-token command directly into `settings.json`.
+- Hooks must use `${CLAUDE_PLUGIN_ROOT}` substitutions only if the script actually lives in a plugin — for project-local hooks, use `$CLAUDE_PROJECT_DIR/.claude/hooks/<name>.sh` (and `$CLAUDE_FILE_PATH` inside the script).
 - Sub-agent `tools` field should be omitted unless you have a strong reason to restrict — agents inherit all tools by default.
 - Do not commit.

@@ -1,102 +1,165 @@
-# adam
+<p align="center">
+  <img src="public/AdamBanner.png" alt="adam" width="720" />
+</p>
 
-Claude Code plugin that installs a **spec-driven dev workflow** into any project. Inspired by the way `Meridian/` uses `CLAUDE.md` as a curated index of `spec/*.md` files — generalized to work on any repo.
+<p align="center"><em>A spec-driven dev workflow for Claude Code. Run once, ship every project with a curated <code>CLAUDE.md</code> + <code>spec/</code>.</em></p>
 
-## What it does
+<p align="center">
+  <a href="#install"><img alt="install" src="https://img.shields.io/badge/install-%2Fplugin%20marketplace%20add-000?style=flat-square"></a>
+  <a href="bench/"><img alt="-16.5% tokens" src="https://img.shields.io/badge/tokens-%E2%88%9216.5%25%20vs%20baseline-2da44e?style=flat-square"></a>
+  <a href="#commands"><img alt="commands" src="https://img.shields.io/badge/commands-5-111?style=flat-square"></a>
+  <a href="#mcp-servers"><img alt="mcps" src="https://img.shields.io/badge/MCP-spec--lint%20%2B%20token--count-111?style=flat-square"></a>
+  <a href="#license"><img alt="license" src="https://img.shields.io/badge/license-MIT-111?style=flat-square"></a>
+</p>
 
-- Turns your `CLAUDE.md` into a **brief + spec index** (under ~80 lines): one paragraph of "what is this", a stack summary, a runtime diagram, and a markdown table linking to `spec/*.md` with token counts per spec.
-- Each `spec/*.md` describes one topic — backend conventions, frontend patterns, an integration's auth quirks, a subsystem's pipeline. Self-contained, code-grounded, refreshed on demand.
-- After scaffolding, **interactively suggests** sub-agents / skills / hooks tailored to the detected stack and writes only what you accept into `.claude/`.
+---
+
+## Why
+
+Claude Code reads `CLAUDE.md` on every session start. Most projects either don't have one, or stuff it with everything, or let it drift. **adam** turns `CLAUDE.md` into a tight brief plus a *curated index* of `spec/*.md` files — one spec per topic, refreshed on demand, sized to fit Claude's context budget.
+
+The result is a measurable speedup: in [a real benchmark](bench/) against [`lkzppm/portifolio`](https://github.com/lkzppm/portifolio), Claude Code finished the same orientation + edit tasks in **−16.5% tokens, −10% cost, fewer turns** when adam had run first. (n=1 per cell — directional, not published. Reproduce script in `bench/README.md`.)
+
+## How it works
+
+```
+your repo                                        ┌──────────────────────────┐
+   │                                             │ CLAUDE.md (brief + index)│
+   │   /adam:setup                               │   spec/                  │
+   │   ─────────────►   adam meta-agent  ─►      │     overview.md          │
+   │                    (reads code,             │     backend.md           │
+   │                     detects stack,          │     frontend.md          │
+   │                     writes specs)           │     INDEX.md             │
+   │                                             │ .claude/                 │
+   │                              + AskUserQuestion │   agents/*.md         │
+   │                              ─────────────► │   settings.json (hooks) │
+   │                              "want these?"  └──────────────────────────┘
+```
+
+`/adam:setup` runs in two phases:
+
+1. **Scaffold.** A meta-agent (`agents/adam.md`) reads your repo, detects stack and subsystems, and writes 3–8 `spec/*.md` files plus a `CLAUDE.md` brief that indexes them. Token count per spec is computed via a bundled offline tokenizer and shown in the index table.
+2. **Suggest.** Using `AskUserQuestion`, the skill offers a checklist of stack-tailored sub-agents/skills/hooks. Whatever you accept lands in `.claude/`. Nothing generic, nothing static, nothing gets written without your selection.
+
+After setup, four small commands keep the system honest:
 
 ## Commands
 
-| Command | What it does |
-|---------|--------------|
-| `/adam:setup` | One-time: scaffolds `spec/`, rewrites `CLAUDE.md` as a brief + index, then prompts (via AskUserQuestion) to add stack-tailored hooks/skills/sub-agents. |
-| `/adam:claude-add [kind] [description]` | Adds ONE sub-agent, skill, or hook to `.claude/`. Prompts interactively for missing details. |
-| `/adam:spec-create <topic>` | Adds a new `spec/<topic>.md` when you've introduced a fresh concept. Re-weaves the index. |
-| `/adam:spec-update [path]` | Refreshes specs to match current code — drift detection across all specs, or just one when a path is given. |
-| `/adam:spec-audit` | Read-only health check of `spec/`, `CLAUDE.md`, `.claude/`. Reports issues without rewriting. |
+| command | what it does |
+|---|---|
+| `/adam:setup` | One-time bootstrap. Scaffolds `spec/`, rewrites `CLAUDE.md`, then prompts (multi-select) to add stack-tailored hooks/skills/sub-agents. |
+| `/adam:claude-add [agent\|skill\|hook] [description]` | Add **one** automation to `.claude/`. Asks for missing details. Merges `.claude/settings.json`, never overwrites. |
+| `/adam:spec-create <topic>` | Add a new `spec/<topic>.md` when a fresh concept enters the project. Re-weaves the index. |
+| `/adam:spec-update [path]` | Drift refresh — verify specs against current code, rewrite stale ones, refresh the index + token counts. Whole tree, or one spec. |
+| `/adam:spec-audit` | Read-only health check. Reports issues without rewriting. |
 
-## Skills
+Each command has a same-named skill so you can also trigger them via natural language ("update spec/", "add a sub-agent for the new auth flow").
 
-Each command is backed by a same-named skill in `skills/` so Claude can also invoke them via natural language ("update spec/", "add a sub-agent for the new auth flow", etc.).
+## What lands in your repo
+
+```
+your-project/
+├── CLAUDE.md                         # ~80-line brief + spec index table
+├── spec/
+│   ├── INDEX.md                      # one-line summary per spec
+│   ├── overview.md                   # what the project is
+│   ├── <subsystem>.md × 2-7          # one per detected subsystem
+│   └── ...
+└── .claude/                          # only if you opted in during setup
+    ├── agents/<name>.md              # tailored sub-agents
+    └── settings.json                 # merged hooks (existing keys preserved)
+```
+
+Specs are **self-contained for one topic** — backend conventions, frontend patterns, an integration's auth quirks, a subsystem's pipeline. Each one says *when to read it* in its description, so Claude pulls only what's needed.
 
 ## MCP servers
 
-| Server | Tools | Notes |
-|--------|-------|-------|
-| `adam:spec-lint` | `lint(path)` | Checks `spec/` + `CLAUDE.md` + `.claude/` for integration issues. |
-| `adam:token-count` | `count(path \| text)`, `count_many(paths)` | Uses Anthropic's `/v1/messages/count_tokens` for billing-grade accuracy when `ANTHROPIC_API_KEY` is set; falls back to a chars/3.7 heuristic (~5% accurate) when no key is present. |
+Two MCPs ship with the plugin and start on session start:
 
-### Configure the API-grade token counter
+| Server | Tool | What it does |
+|---|---|---|
+| `adam:spec-lint` | `lint(path)` | Verifies `spec/` + `CLAUDE.md` + `.claude/` are well integrated. Catches oversize specs, broken cross-references, missing index entries, missing frontmatter. Returns errors/warnings/token-summary. |
+| `adam:token-count` | `count(path \| text)` · `count_many(paths)` | Counts tokens for any file or string using `gpt-tokenizer` (cl100k_base, pure JS, no WASM, no API key). Within ~3-8% of Anthropic's tokenizer. |
 
-When you enable the plugin, Claude Code prompts for two `userConfig` values:
-
-- `anthropic_api_key` — optional. Stored in the system keychain when set.
-- `token_count_model` — defaults to `claude-sonnet-4-5`.
-
-Without the key the heuristic mode runs offline with no setup.
-
-## Meta-agent
-
-`agents/adam.md` is the orchestrator that does the actual scaffolding. The skills delegate to it for non-trivial work. It analyzes the project from the working tree (no static templates) and produces per-project artifacts only — never writes to `~/.claude/`.
+Both used by `/adam:spec-update` and `/adam:spec-audit` automatically.
 
 ## Install
 
-Install via your usual marketplace, or symlink locally for development:
+### Via marketplace
 
 ```
-ln -s /path/to/adam ~/.claude/plugins/adam
+/plugin marketplace add lkzppm/adam
+/plugin install adam@adam
 ```
 
-Enable the plugin in Claude Code, then run `/adam:setup` in any project.
-
-## Dependencies
-
-The MCP servers depend on `@modelcontextprotocol/sdk`. The plugin's `SessionStart` hook auto-installs `node_modules` into `${CLAUDE_PLUGIN_DATA}/` (a per-plugin persistent dir that survives plugin updates) by reading the root `package.json`. **No manual install step.**
-
-For local development without a hook firing (e.g. running smoke tests):
+Then in any project:
 
 ```
-npm install
+/adam:setup
 ```
 
-## Plugin layout
+### Via local symlink (development)
 
-```
-adam/
-├── .claude-plugin/plugin.json    # manifest with $schema + userConfig
-├── .mcp.json                      # MCP servers (NODE_PATH points to CLAUDE_PLUGIN_DATA)
-├── package.json                   # shared deps for the MCP servers
-├── hooks/hooks.json               # SessionStart: installs deps to CLAUDE_PLUGIN_DATA
-├── README.md
-├── agents/adam.md                 # the meta-agent
-├── commands/                      # slash entrypoints
-│   ├── setup.md
-│   ├── claude-add.md
-│   ├── spec-create.md
-│   ├── spec-update.md
-│   └── spec-audit.md
-├── skills/                        # natural-language entrypoints
-│   ├── setup/SKILL.md
-│   ├── claude-add/SKILL.md
-│   ├── spec-create/SKILL.md
-│   ├── spec-update/SKILL.md
-│   └── spec-audit/SKILL.md
-├── mcps/
-│   ├── spec-lint/server.js
-│   └── token-count/server.js
-└── scripts/
-    └── smoke-test.sh              # standalone MCP smoke test
+```bash
+git clone git@github.com:lkzppm/adam.git ~/.claude/plugins/adam
+# enable in CC: /plugin
 ```
 
-## Compliance with the official plugin spec
+The plugin's `SessionStart` hook auto-installs `node_modules` into `${CLAUDE_PLUGIN_DATA}` per the official Claude Code spec — no manual install step.
+
+## Benchmark — real numbers, real repo
+
+[Full report in `bench/README.md`.](bench/) Quick summary:
+
+| | T1 (orientation) | T2 (code edit) | Total |
+|---|---:|---:|---:|
+| Baseline tokens | 75,498 | 213,497 | **288,995** |
+| With-adam tokens | 53,091 | 188,210 | **241,301** |
+| **Δ** | −30% | −12% | **−16.5%** |
+| Cost Δ | −13% | −9% | **−10.2%** |
+| Turns Δ | −1 | −1 | −2 |
+
+**Where the savings come from:** Claude Code spends fewer cache reads — it doesn't have to grep the source tree to orient itself, because the spec index already says *which* file is relevant for *which* topic. T2 also produced slightly more robust code (defensive `?? []` guards, richer response shape) on the with-adam side.
+
+n=1 per cell. Reproduce script + raw `claude -p --output-format json` outputs are in `bench/results/`.
+
+## Compliance with the official Claude Code plugin spec
 
 Verified against [code.claude.com/docs/en/plugins-reference](https://code.claude.com/docs/en/plugins-reference):
 
-- Manifest at `.claude-plugin/plugin.json`, only `name` required, `$schema` referenced for editor autocomplete.
-- All component dirs at plugin root (not nested in `.claude-plugin/`).
-- `${CLAUDE_PLUGIN_ROOT}` for bundled paths; `${CLAUDE_PLUGIN_DATA}` for installed dependencies.
-- `userConfig` for optional secrets — stored in keychain when `sensitive: true`.
-- Agent frontmatter uses only supported fields (`name`, `description`, `model`, `color`).
+- ✅ Manifest at `.claude-plugin/plugin.json`, only `name` required, `$schema` URL referenced.
+- ✅ Components at plugin root (commands, agents, skills, hooks, mcps).
+- ✅ `${CLAUDE_PLUGIN_ROOT}` for bundled paths; `${CLAUDE_PLUGIN_DATA}` for installed dependencies (survives plugin updates).
+- ✅ Agent frontmatter uses only allowed fields (`name`, `description`, `model`, `color`).
+- ✅ Skill descriptions enumerate explicit trigger phrases.
+- ✅ SessionStart hook follows the official `diff → npm install` pattern.
+- ✅ MCP servers wired via `.mcp.json` with portable `${...}` substitutions.
+- ✅ All-free, all-offline. No API keys required. Tokenizer is `gpt-tokenizer` (cl100k_base, pure JS).
+
+## Layout
+
+```
+adam/
+├── .claude-plugin/{plugin,marketplace}.json   # manifest + marketplace entry
+├── .mcp.json                                  # spec-lint + token-count
+├── package.json                               # one shared dep tree for both MCPs
+├── hooks/hooks.json                           # SessionStart: install deps to CLAUDE_PLUGIN_DATA
+├── agents/adam.md                             # the meta-agent
+├── commands/                                  # slash entrypoints
+│   ├── setup.md  ·  claude-add.md
+│   └── spec-{create,update,audit}.md
+├── skills/                                    # natural-language entrypoints
+│   ├── setup/  ·  claude-add/
+│   └── spec-{create,update,audit}/
+├── mcps/
+│   ├── lib/tokens.js                          # shared gpt-tokenizer wrapper
+│   ├── spec-lint/server.js
+│   └── token-count/server.js
+├── scripts/smoke-test.sh                      # standalone MCP smoke test
+├── bench/                                     # the comparison vs portifolio
+└── public/AdamBanner.png
+```
+
+## License
+
+MIT. Built by [Lucas Pacheco](https://github.com/lkzppm). PRs welcome.

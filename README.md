@@ -76,7 +76,7 @@ Specs are **self-contained for one topic** — backend conventions, frontend pat
 
 ## MCP servers
 
-Two MCPs ship with the plugin and start on session start:
+Two MCPs ship with the plugin (TypeScript, run via `tsx`) and start on session start:
 
 | Server | Tool | What it does |
 |---|---|---|
@@ -190,10 +190,11 @@ adam/
 ├── skills/                                    # natural-language entrypoints
 │   ├── setup/  ·  claude-add/
 │   └── spec-{create,update,audit}/
-├── mcps/
-│   ├── lib/tokens.js                          # shared gpt-tokenizer wrapper
-│   ├── spec-lint/server.js
-│   └── token-count/server.js
+├── mcps/                                      # TypeScript sources, run via tsx
+│   ├── lib/tokens.ts                          # shared gpt-tokenizer wrapper
+│   ├── spec-lint/server.ts
+│   └── token-count/server.ts
+├── tsconfig.json                              # strict TS config (typecheck via tsc --noEmit)
 ├── scripts/smoke-test.sh                      # standalone MCP smoke test
 ├── bench/                                     # the comparison vs portifolio
 └── public/AdamBanner.png

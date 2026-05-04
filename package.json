@@ -1,0 +1,11 @@
+{
+  "name": "adam-plugin-mcps",
+  "version": "0.3.0",
+  "description": "Shared dependencies for the adam plugin's MCP servers (spec-lint, token-count). Installed into ${CLAUDE_PLUGIN_DATA}/node_modules by the SessionStart hook so it survives plugin updates.",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "gpt-tokenizer": "^2.4.0"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "adam",
+  "version": "0.3.0",
+  "description": "Spec-driven dev ecosystem for Claude Code. Turns CLAUDE.md into a curated index of spec/*.md files, ships a meta-agent that scaffolds per-project specs/agents/hooks tailored to the detected stack, and bundles MCP servers for spec-linting and offline token-counting (gpt-tokenizer, no API key required).",
+  "author": {
+    "name": "Lucas Pinheiro",
+    "email": "lucasppmc@gmail.com",
+    "url": "https://github.com/lkzppm"
+  },
+  "homepage": "https://github.com/lkzppm/adam",
+  "repository": "https://github.com/lkzppm/adam",
+  "license": "MIT",
+  "keywords": ["spec-driven", "claude-md", "scaffolding", "documentation", "mcp", "tokenizer"]
+}

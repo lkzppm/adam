@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "spec-lint": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcps/spec-lint/server.js"],
+      "env": {
+        "NODE_PATH": "${CLAUDE_PLUGIN_DATA}/node_modules"
+      }
+    },
+    "token-count": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcps/token-count/server.js"],
+      "env": {
+        "NODE_PATH": "${CLAUDE_PLUGIN_DATA}/node_modules"
+      }
+    }
+  }
+}

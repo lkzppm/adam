@@ -63,10 +63,37 @@ When you add new fields to `data/portfolio.ts`, extend the chunk builder in `rag
 Tool schemas follow OpenAI's function spec (Groq is wire-compatible). Currently:
 
 - `compute_fit_score(job_description: string)` — compares a JD or skills list against Lucas's actual skills/projects/experience. Returns matched/missing keywords + 0–10 score. Called whenever the visitor mentions a specific role or pastes a JD.
+- `fetch_contributions()` — pulls Lucas's recent GitHub activity (commit graph, latest commit, latest open/merged PRs).
+- `schedule_callback({ email, role_context })` — captures visitor contact info; sends an email to Lucas.
 
 `executeTool(name, args)` dispatches by name and runs the implementation against `data/portfolio.ts`.
 
-To add a tool: append a schema to `TOOL_SCHEMAS`, add an `executeTool` branch.
+### Anchors — `lib/mcp.ts` (≈540 lines)
+
+This file is large. Get the line numbers from the knowledge graph instead of reading top-to-bottom — the graph stays current with edits.
+
+| Symbol | How to locate it |
+|---|---|
+| `TOOL_SCHEMAS` array | `gitnexus_context({name: "TOOL_SCHEMAS", repo: "portifolio"})` → file:line range of the export |
+| `ToolName` union | `gitnexus_cypher({query: "MATCH (n) WHERE n.name = 'ToolName' RETURN n.file, n.startLine, n.endLine"})` |
+| `ToolResultEnvelope` | same pattern, name = `ToolResultEnvelope` |
+| Sample executor (`computeFitScore`) | `gitnexus_context({name: "computeFitScore", repo: "portifolio"})` |
+| `executeTool` dispatcher | `gitnexus_context({name: "executeTool", repo: "portifolio"})` → callers + line range |
+
+When you need to understand impact before editing an existing tool: `gitnexus_impact({target: "<symbolName>", repo: "portifolio", direction: "upstream"})`. When tracing the chat request flow: `gitnexus_query({query: "chat api request flow", repo: "portifolio"})`.
+
+Read the slices the graph returns, not the whole file. The middle of the file is per-tool implementation logic that you only need to look at if you're modifying an existing tool.
+
+### How to add a new MCP-style tool
+
+1. **Append the schema** to the `TOOL_SCHEMAS` array — copy an existing entry, change `name`, `description`, `parameters`. Required-args go in `parameters.required`.
+2. **Extend the `ToolName` union** with `| 'new_tool_name'`.
+3. **Add a case to `executeTool`** (the `switch (name)` block). Validate `args`, call your executor, return `{ ok: true, data: ... }` or `{ ok: false, error: '...' }`.
+4. **Optionally extract a helper function** above the dispatcher for any non-trivial logic. Keep the function pure; let the dispatcher handle the envelope.
+
+Use `gitnexus_context` on each of the symbols above to get the current line range before editing.
+
+Data is in `data/portfolio.ts`: `personalInfo`, `projects` (`{ id, title, description, techStack, github, image, featured }`), `skillCategories` (`{ title, skills }`), `experiences`. Use the actual field names — `techStack` not `tags`.
 
 ## Rate limit — `lib/ratelimit.ts`
 

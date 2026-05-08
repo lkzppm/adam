@@ -1,3 +1,7 @@
 node_modules/
 *.log
 .DS_Store
+
+# Local dev session state — not part of the plugin
+.claude/settings.local.json
+.claude/scheduled_tasks.lock

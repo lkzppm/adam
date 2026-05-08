@@ -17,6 +17,16 @@ Reconcile `spec/*.md` and `CLAUDE.md` against the current state of the code.
 - `spec/` directory exists and has at least one `*.md`. If not → tell the user to run `/adam:setup` and stop.
 - `CLAUDE.md` exists with a spec index table.
 
+## Pre-step — clean the gitnexus auto-injection
+
+`gitnexus analyze` re-injects a `<!-- gitnexus:start -->...<!-- gitnexus:end -->` block into `CLAUDE.md` on every fresh run. Before delegating to the agent, run the strip script — idempotent and silent when the markers aren't present:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/strip-gitnexus-block.sh "$PWD"
+```
+
+This keeps the CLAUDE.md the agent reads in sync with what adam actually authors.
+
 ## Process
 
 Delegate to the `adam` sub-agent. For an all-spec audit:

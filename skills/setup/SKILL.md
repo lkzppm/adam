@@ -5,8 +5,9 @@ description: One-time scaffolding of a spec-driven Claude Code workflow in this 
 
 # setup
 
-Two-phase bootstrap:
+Three-phase bootstrap:
 
+0. **Index** — verify GitNexus is installed and the repo is indexed. Wire `.mcp.json` so Claude can query the graph.
 1. **Scaffold** — write `spec/`, `spec/INDEX.md`, and `CLAUDE.md`.
 2. **Suggest** — interactively offer hooks / skills / sub-agents tailored to the detected stack, using `AskUserQuestion`. Each accepted item is created on the spot.
 
@@ -17,6 +18,23 @@ Two-phase bootstrap:
 - User explicitly asks for re-setup with `--force`
 
 If `spec/` already contains content and `--force` was not passed, **stop and tell the user** to run `/adam:spec-update` instead.
+
+## Phase 0 — knowledge graph
+
+GitNexus is a hard prerequisite — adam's anchors depend on a current `.gitnexus/` index. **Do not interpret these steps yourself; call the script.** The script is idempotent, deterministic, and parseable.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/setup-graph.sh "$PWD"
+```
+
+The script:
+
+1. Verifies `gitnexus` is on PATH (exits non-zero with a clear `npm install -g gitnexus` hint if missing — relay that to the user verbatim and stop).
+2. Indexes the repo if `.gitnexus/` is absent (`gitnexus analyze` for git repos, `--skip-git` otherwise).
+3. Strips the `<!-- gitnexus:start -->...<!-- gitnexus:end -->` block that `gitnexus analyze` auto-writes into `CLAUDE.md` on first run — its prescriptive "MUST run impact analysis…" rules measurably bias the model toward extra exploration turns; adam's own CLAUDE.md says what we want already.
+4. Merges `gitnexus` into `.mcp.json` under `mcpServers` (creates the file or splices into an existing one — never overwrites unrelated entries).
+
+The script emits a single JSON object on stdout, e.g. `{"status":"ok","indexed":"true","stripped":"false","mcp":"created","stats":{"nodes":735,"edges":940,"clusters":18,"processes":16},...}`. Surface those stats in the Phase 0 section of the final report. If `status != "ok"`, surface the script's stderr and stop — Phase 1 depends on a working graph.
 
 ## Phase 1 — scaffold
 
@@ -77,9 +95,14 @@ Keep each file substantive — no placeholder content. If you can't write someth
 
 ## Output format
 
-Two reports separated:
+Three reports separated:
 
 ```
+── Phase 0: knowledge graph ──
+GitNexus: <indexed | newly indexed | already current>
+Stats: <nodes / edges / clusters / processes>
+.mcp.json: <created | merged | already wired>
+
 ── Phase 1: spec scaffolding ──
 <adam agent's standard report — Created/Updated/Deleted/Lint/Notes>
 

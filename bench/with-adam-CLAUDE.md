@@ -35,6 +35,16 @@ app/page.tsx
 |------|-----------|--------|
 | [spec/overview.md](./spec/overview.md) | Onboarding — what the site does, deploy target, repo layout | 749 |
 | [spec/frontend.md](./spec/frontend.md) | Touching layout/playground/terminal components, fonts, styling conventions | 799 |
-| [spec/chat-api.md](./spec/chat-api.md) | Editing `/api/chat`, the RAG retriever, MCP-style tools, or the rate limiter | 1196 |
+| [spec/chat-api.md](./spec/chat-api.md) | Editing `/api/chat`, the RAG retriever, MCP-style tools, or the rate limiter | 1500 |
+
+## Response style
+- **Code requests** (implement, fix, refactor, add, change, write): reply with a 1–3 line briefing — what was done and which files changed. No diff summaries, no restating the task, no next-step suggestions unless asked.
+- **Explanations / chat questions** ("why", "how does", "explain"): reply normally, verbose as needed.
+- Default to brief. Don't waste output tokens.
+
+## Editing code
+- Before editing a symbol, locate it via the **GitNexus knowledge graph** — `gitnexus_context({name, repo: "portifolio"})` for callers/callees + file:line, `gitnexus_impact` before risky changes, `gitnexus_query` to trace flows. The graph is the up-to-date anchor source; static spec line numbers drift.
+- For files over ~300 lines, read only the slice the graph returns and its direct callers — never read top-to-bottom.
+- If the spec contains a recipe for the kind of change being requested, follow it.
 
 Run `/adam:spec-update` after substantive code changes.

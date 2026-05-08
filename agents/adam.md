@@ -32,7 +32,23 @@ Keep it under ~80 lines. Required structure (in order):
 2. **Stack** — bullet list: language, framework, DB, infra surface.
 3. **Runtime shape** — short ASCII diagram OR one paragraph showing how requests flow / how the bot ticks / how data moves. Skip if not applicable.
 4. **Spec index** — markdown table, one row per `spec/*.md`, columns: `Spec | Read when… | Tokens`. The Tokens column is filled via the `token-count` MCP.
-5. **Refreshing this file** — pointer to `/adam:spec-update`.
+5. **Response style** — short block telling the assistant how to balance brevity vs. verbosity. Always include this verbatim (or a near-verbatim equivalent — do **not** drop it):
+
+   > ## Response style
+   > - **Code requests** (implement, fix, refactor, add, change, write): reply with a 1–3 line briefing — what was done and which files changed. No diff summaries, no restating the task, no next-step suggestions unless asked.
+   > - **Explanations / chat questions** ("why", "how does", "explain", "what do you think"): reply normally, verbose as needed.
+   > - Default to brief. Don't waste output tokens.
+
+6. **Editing code** — short block telling the assistant how to navigate for edits. Always include this verbatim (or a near-verbatim equivalent — do **not** drop it):
+
+   > ## Editing code
+   > - Before editing a symbol, locate it via the **GitNexus knowledge graph** — `gitnexus_context({name, repo: "<repo>"})` for callers/callees + file:line, `gitnexus_impact` before risky changes, `gitnexus_query` to trace flows. The graph is the up-to-date anchor source; static line numbers drift.
+   > - For files over ~300 lines, read only the slice the graph returns and its direct callers — never read top-to-bottom.
+   > - If the spec contains a recipe for the kind of change being requested, follow it.
+
+   The plugin ships a `PostToolUse` hook that re-indexes the graph in the background after every Edit/Write so the next graph query reads a working-tree-current view. No agent-visible noise — just keep editing, the graph stays fresh.
+
+7. **Refreshing this file** — pointer to `/adam:spec-update`.
 
 `CLAUDE.md` is a brief, not another spec. Push details into `spec/`.
 
@@ -57,6 +73,24 @@ No `agents:` lists. No baked-in token counts (they're refreshed live in CLAUDE.m
 - Architecture diagrams that span multiple subsystems → put in `overview.md`.
 
 Aim for **3–8 specs** for a small/medium repo. If you're tempted to write more than ~5000 tokens in one spec, split it.
+
+**Each spec covering a code subsystem MUST include an anchors block** — a list of symbols the spec is about, paired with the graph tool that resolves each one. Anchors let the assistant (and the auto-injecting hook) target the exact slice of source code it needs instead of reading whole files. Symbols, not line numbers — the graph stays fresh, so anchors don't need `spec-update` re-anchoring:
+
+```md
+### Anchors — `lib/mcp.ts` (≈540 lines)
+
+| Symbol | How to locate it |
+|---|---|
+| `TOOL_SCHEMAS` array | `gitnexus_context({name: "TOOL_SCHEMAS", repo: "<repo>"})` |
+| `ToolName` union | `gitnexus_cypher({query: "MATCH (n) WHERE n.name = 'ToolName' RETURN n.file, n.startLine, n.endLine"})` |
+| `executeTool` dispatcher | `gitnexus_context({name: "executeTool", repo: "<repo>"})` |
+
+Before editing an existing symbol: `gitnexus_impact({target, repo, direction: "upstream"})`.
+```
+
+Use real symbol names from the code, not invented ones. The hook only auto-injects context for symbols that are **backticked in the user's prompt and present in the graph** — so naming things accurately in the spec helps users name them accurately in their prompts, which is what makes the hook fire.
+
+**If the subsystem has a recurring edit shape** (e.g. "every MCP tool follows the same 4-step add pattern", "every Next.js route follows the same shape"), include a `## How to add a new <thing>` recipe — numbered steps referencing the anchors. Don't write a recipe for one-off subsystems where there's no recurring pattern.
 
 ### `spec/INDEX.md`
 
@@ -89,7 +123,8 @@ Run these in parallel before writing anything:
 3. **Subsystem detection.** Top-level dirs that look like subsystems: `core/`, `api/`, `worker/`, `dashboard/`, `interface/`, `db/`, `migrations/`, `connectors/`, `analyzer/`, `executor/`, `cli/`. Each warrants consideration as a spec.
 4. **Infrastructure detection.** `docker-compose.yml`, `Dockerfile`, `.github/workflows/*`, terraform/k8s manifests.
 5. **DB detection.** `db/schema.sql`, Prisma `schema.prisma`, Alembic `versions/`, Django `migrations/`.
-6. **Recent intent.** `git log --oneline -30` to understand what's actively being worked on. (`git log` may fail if not a repo — just skip.)
+6. **Knowledge-graph state.** GitNexus is a hard prerequisite for the workflow adam ships. Run `gitnexus list` to see indexed repos and check whether the current path appears. If it doesn't, the user needs to run `gitnexus analyze` (or `gitnexus analyze --skip-git` for non-git folders) before specs become useful — note this in your final report.
+7. **Recent intent.** `git log --oneline -30` to understand what's actively being worked on. (`git log` may fail if not a repo — just skip.)
 
 ## Algorithm — first-time setup (spec scaffolding only)
 

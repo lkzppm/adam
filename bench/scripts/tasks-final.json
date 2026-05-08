@@ -1,0 +1,74 @@
+[
+  {
+    "id": "T2",
+    "family": "edit",
+    "topic": "by-tech",
+    "prompt": "Add a new MCP-style tool `list_projects_by_tech` to `lib/mcp.ts`. Takes a `tech` string, returns matching projects from `data/portfolio.ts` (case-insensitive match against `techStack`). Wire into `TOOL_SCHEMAS` and `executeTool`."
+  },
+  {
+    "id": "T2b",
+    "family": "edit",
+    "topic": "skills-in-category",
+    "prompt": "Add a new MCP-style tool `list_skills_in_category` to `lib/mcp.ts`. Takes a `category` string, returns the `skills` array from the matching `skillCategories` entry (match on `title`, case-insensitive). Wire into `TOOL_SCHEMAS` and `executeTool`."
+  },
+  {
+    "id": "T2c",
+    "family": "edit",
+    "topic": "count-projects",
+    "prompt": "Add a new MCP-style tool `count_projects` to `lib/mcp.ts`. Takes no args, returns `{ count }` for the projects in `data/portfolio.ts`. Wire into `TOOL_SCHEMAS` and `executeTool`."
+  },
+  {
+    "id": "T2d",
+    "family": "edit",
+    "topic": "featured",
+    "prompt": "Add a new MCP-style tool `list_featured_projects` to `lib/mcp.ts`. Takes no args, returns projects from `data/portfolio.ts` where `featured` is true. Wire into `TOOL_SCHEMAS` and `executeTool`."
+  },
+  {
+    "id": "T2e",
+    "family": "edit",
+    "topic": "by-id",
+    "prompt": "Add a new MCP-style tool `find_project_by_id` to `lib/mcp.ts`. Takes an `id` string, returns the matching project from `data/portfolio.ts`, or an error envelope when not found. Wire into `TOOL_SCHEMAS` and `executeTool`."
+  },
+  {
+    "id": "T2f",
+    "family": "edit",
+    "topic": "at-company",
+    "prompt": "Add a new MCP-style tool `list_experiences_at_company` to `lib/mcp.ts`. Takes a `company` string, returns matching entries from `experiences` in `data/portfolio.ts` (case-insensitive). Wire into `TOOL_SCHEMAS` and `executeTool`."
+  },
+  {
+    "id": "T2g",
+    "family": "edit",
+    "topic": "search",
+    "prompt": "Add a new MCP-style tool `search_projects` to `lib/mcp.ts`. Takes a `query` string, returns projects from `data/portfolio.ts` whose `title` or `description` contains the query (case-insensitive). Wire into `TOOL_SCHEMAS` and `executeTool`."
+  },
+  {
+    "id": "T2h",
+    "family": "edit",
+    "topic": "categories-list",
+    "prompt": "Add a new MCP-style tool `list_categories` to `lib/mcp.ts`. Takes no args, returns a sorted array of `skillCategories.title` values from `data/portfolio.ts`. Wire into `TOOL_SCHEMAS` and `executeTool`."
+  },
+  {
+    "id": "T2i",
+    "family": "edit",
+    "topic": "techs-list",
+    "prompt": "Add a new MCP-style tool `list_techs` to `lib/mcp.ts`. Takes no args, returns a sorted unique list of all `techStack` entries across `projects` in `data/portfolio.ts`. Wire into `TOOL_SCHEMAS` and `executeTool`."
+  },
+  {
+    "id": "T2j",
+    "family": "edit",
+    "topic": "count-per-category",
+    "prompt": "Add a new MCP-style tool `count_skills_per_category` to `lib/mcp.ts`. Takes no args, returns an array of `{ category, count }` objects derived from `skillCategories` in `data/portfolio.ts`. Wire into `TOOL_SCHEMAS` and `executeTool`."
+  },
+  {
+    "id": "T3",
+    "family": "graph-edit",
+    "topic": "rename",
+    "prompt": "In `lib/mcp.ts`, rename the `executeTool` function to `dispatchTool`. Find every call site across the project and update it so the project still typechecks."
+  },
+  {
+    "id": "T3b",
+    "family": "graph-edit",
+    "topic": "envelope-version",
+    "prompt": "Add a `version: string` field to the `ToolResultEnvelope` type in `lib/mcp.ts`. Default it to `'1'` in every successful (`ok: true`) return inside `executeTool`. Update the type and every existing return so the project still typechecks."
+  }
+]

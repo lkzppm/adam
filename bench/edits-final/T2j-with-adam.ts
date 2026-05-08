@@ -42,7 +42,7 @@ export const TOOL_SCHEMAS = [
     function: {
       name: 'count_skills_per_category',
       description:
-        "Return the number of skills Lucas has in each skill category (e.g. 'AI & ML', 'Backend', 'Frontend'). Use when the visitor asks about the breadth of Lucas's skill set, which areas he's strongest in, or how many technologies he knows per domain.",
+        "Return the number of skills Lucas has in each skill category (e.g. 'AI & ML', 'Frontend', 'Backend'). Use when the visitor asks about the breadth of Lucas's skill set, how many skills he has, or wants a summary of which domains he covers.",
       parameters: {
         type: 'object',
         properties: {},
@@ -522,6 +522,12 @@ async function scheduleCallback({
   }
 }
 
+// ── count_skills_per_category ──
+
+function countSkillsPerCategory(): { category: string; count: number }[] {
+  return skillCategories.map(c => ({ category: c.title, count: c.skills.length }))
+}
+
 // ─── Dispatcher ─────────────────────────────────────────────────────────────
 
 export async function executeTool(
@@ -539,16 +545,15 @@ export async function executeTool(
         const data = await fetchContributions()
         return { ok: true, data }
       }
-      case 'count_skills_per_category': {
-        const data = skillCategories.map(c => ({ category: c.title, count: c.skills.length }))
-        return { ok: true, data }
-      }
       case 'schedule_callback': {
         const safeArgs = (args ?? {}) as Record<string, unknown>
         const email = typeof safeArgs.email === 'string' ? safeArgs.email : ''
         const role_context = typeof safeArgs.role_context === 'string' ? safeArgs.role_context : ''
         const data = await scheduleCallback({ email, role_context })
         return { ok: data.ok, data }
+      }
+      case 'count_skills_per_category': {
+        return { ok: true, data: countSkillsPerCategory() }
       }
       default:
         return { ok: false, error: `Unknown tool: ${name}` }

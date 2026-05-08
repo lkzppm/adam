@@ -65,7 +65,7 @@ export const TOOL_SCHEMAS = [
     function: {
       name: 'list_techs',
       description:
-        "Return a sorted, deduplicated list of every technology in Lucas's project tech stacks. Use this when a visitor asks what technologies Lucas has used, what his tech stack looks like across projects, or wants a quick overview of his tooling.",
+        "Return a sorted, deduplicated list of every technology in Lucas's project tech stacks. Use when the visitor asks what technologies, languages, or frameworks Lucas has used across his projects.",
       parameters: {
         type: 'object',
         properties: {},

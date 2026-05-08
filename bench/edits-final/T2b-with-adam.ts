@@ -40,24 +40,6 @@ export const TOOL_SCHEMAS = [
   {
     type: 'function',
     function: {
-      name: 'list_skills_in_category',
-      description:
-        "Return the list of skills Lucas has in a specific category (e.g. 'AI & ML', 'Frontend', 'Backend', 'DevOps'). Use when a visitor asks what Lucas knows in a particular area or domain. Match the category name case-insensitively.",
-      parameters: {
-        type: 'object',
-        properties: {
-          category: {
-            type: 'string',
-            description: "The skill category title to look up (e.g. 'AI & ML', 'Frontend').",
-          },
-        },
-        required: ['category'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
       name: 'schedule_callback',
       description:
         "Capture a visitor's contact info and intent so Lucas can reach back out. Use when the visitor expresses interest in scheduling a call, wants Lucas to contact them, shares a role/opportunity they want to discuss, or asks how to reach Lucas to set something up. Always confirm the email and ask for brief context before calling. Sends an email to Lucas.",
@@ -75,6 +57,24 @@ export const TOOL_SCHEMAS = [
           },
         },
         required: ['email', 'role_context'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_skills_in_category',
+      description:
+        "Return the list of skills Lucas has in a named category (e.g. 'AI & ML', 'Frontend', 'Backend'). Use when the visitor asks what skills Lucas has in a specific area or technology domain.",
+      parameters: {
+        type: 'object',
+        properties: {
+          category: {
+            type: 'string',
+            description: 'The skill category title to look up (case-insensitive).',
+          },
+        },
+        required: ['category'],
       },
     },
   },
@@ -464,6 +464,17 @@ async function fetchContributions(): Promise<ContributionsResult> {
   return result
 }
 
+// ── list_skills_in_category ──
+
+function listSkillsInCategory({ category }: { category: string }): { category: string; skills: string[] } | { error: string } {
+  const match = skillCategories.find(c => c.title.toLowerCase() === category.toLowerCase())
+  if (!match) {
+    const available = skillCategories.map(c => c.title).join(', ')
+    return { error: `Category "${category}" not found. Available: ${available}` }
+  }
+  return { category: match.title, skills: [...match.skills] }
+}
+
 // ── schedule_callback ──
 
 interface ScheduleResult {
@@ -528,17 +539,6 @@ async function scheduleCallback({
   }
 }
 
-// ── list_skills_in_category ──
-
-function listSkillsInCategory({ category }: { category: string }): { category: string; skills: string[] } | { error: string } {
-  const match = skillCategories.find(c => c.title.toLowerCase() === category.toLowerCase())
-  if (!match) {
-    const available = skillCategories.map(c => c.title).join(', ')
-    return { error: `No category matching "${category}". Available: ${available}` }
-  }
-  return { category: match.title, skills: match.skills }
-}
-
 // ─── Dispatcher ─────────────────────────────────────────────────────────────
 
 export async function executeTool(
@@ -556,18 +556,18 @@ export async function executeTool(
         const data = await fetchContributions()
         return { ok: true, data }
       }
-      case 'list_skills_in_category': {
-        const category = typeof args.category === 'string' ? args.category : ''
-        if (!category.trim()) return { ok: false, error: 'category is required' }
-        const data = listSkillsInCategory({ category })
-        return 'error' in data ? { ok: false, error: data.error } : { ok: true, data }
-      }
       case 'schedule_callback': {
         const safeArgs = (args ?? {}) as Record<string, unknown>
         const email = typeof safeArgs.email === 'string' ? safeArgs.email : ''
         const role_context = typeof safeArgs.role_context === 'string' ? safeArgs.role_context : ''
         const data = await scheduleCallback({ email, role_context })
         return { ok: data.ok, data }
+      }
+      case 'list_skills_in_category': {
+        const category = typeof args.category === 'string' ? args.category : ''
+        if (!category.trim()) return { ok: false, error: 'category is required' }
+        const data = listSkillsInCategory({ category })
+        return 'error' in data ? { ok: false, error: data.error } : { ok: true, data }
       }
       default:
         return { ok: false, error: `Unknown tool: ${name}` }

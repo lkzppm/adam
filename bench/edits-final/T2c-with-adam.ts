@@ -40,6 +40,18 @@ export const TOOL_SCHEMAS = [
   {
     type: 'function',
     function: {
+      name: 'count_projects',
+      description:
+        "Return the total number of projects in Lucas's portfolio. Use when the visitor asks how many projects Lucas has built or wants a quick count.",
+      parameters: {
+        type: 'object',
+        properties: {},
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'schedule_callback',
       description:
         "Capture a visitor's contact info and intent so Lucas can reach back out. Use when the visitor expresses interest in scheduling a call, wants Lucas to contact them, shares a role/opportunity they want to discuss, or asks how to reach Lucas to set something up. Always confirm the email and ask for brief context before calling. Sends an email to Lucas.",
@@ -57,18 +69,6 @@ export const TOOL_SCHEMAS = [
           },
         },
         required: ['email', 'role_context'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'count_projects',
-      description:
-        "Return the total number of projects in Lucas's portfolio. Use when a visitor asks how many projects Lucas has built or wants a quick count.",
-      parameters: {
-        type: 'object',
-        properties: {},
       },
     },
   },
@@ -522,12 +522,6 @@ async function scheduleCallback({
   }
 }
 
-// ── count_projects ──
-
-function countProjects(): { count: number } {
-  return { count: projects.length }
-}
-
 // ─── Dispatcher ─────────────────────────────────────────────────────────────
 
 export async function executeTool(
@@ -541,6 +535,9 @@ export async function executeTool(
         if (!jd.trim()) return { ok: false, error: 'job_description is required' }
         return { ok: true, data: computeFitScore({ job_description: jd }) }
       }
+      case 'count_projects': {
+        return { ok: true, data: { count: projects.length } }
+      }
       case 'fetch_contributions': {
         const data = await fetchContributions()
         return { ok: true, data }
@@ -551,9 +548,6 @@ export async function executeTool(
         const role_context = typeof safeArgs.role_context === 'string' ? safeArgs.role_context : ''
         const data = await scheduleCallback({ email, role_context })
         return { ok: data.ok, data }
-      }
-      case 'count_projects': {
-        return { ok: true, data: countProjects() }
       }
       default:
         return { ok: false, error: `Unknown tool: ${name}` }

@@ -1,167 +1,135 @@
 # adam — benchmark
 
-Apples-to-apples comparison: the same `claude -p` (model `sonnet`) running 22 distinct tasks against two copies of [lkzppm/portifolio](https://github.com/lkzppm/portifolio) — one vanilla, one bootstrapped with `/adam:setup` (CLAUDE.md + `spec/*.md` + `.mcp.json` wiring the GitNexus knowledge-graph MCP server). Numbers come straight from `claude -p --output-format json`'s `usage` block; raw JSON for every run is in `results/` (orientation) and `edits-final/` (edits).
+Apples-to-apples comparison of Claude Code (`claude -p`, Sonnet) running 22 distinct tasks against two copies of [lkzppm/portifolio](https://github.com/lkzppm/portifolio): one vanilla, one bootstrapped with `/adam:setup`. Numbers come from `claude -p --output-format json`'s `usage` block; raw JSON for every run is in `results/` (orientation) and `edits-final/` (edits). Quality probe outputs are checked into `edits-final/*.ts`.
+
+The bench has **two classes** with **three subbenches**:
+
+```
+Orientation     — "Asking about the codebase"
+Coding          — Token cost
+                  Output code quality
+```
 
 ## Setup
 
 ```
-rsync portifolio → /tmp/bench/baseline       # vanilla, no CLAUDE.md
-rsync portifolio → /tmp/bench/with-adam      # + CLAUDE.md + spec/{overview,frontend,chat-api}.md
-                                              # + .mcp.json (gitnexus stdio MCP)
-                                              # + .gitnexus/ index (gitnexus analyze)
+rsync portifolio → /tmp/bench/baseline       # vanilla
+rsync portifolio → /tmp/bench/with-adam      # + CLAUDE.md + spec/ + .mcp.json + .gitnexus/
 ```
 
-The with-adam scratch dir's CLAUDE.md and `spec/` are checked into this directory (`with-adam-CLAUDE.md`, `with-adam-spec/`) so you can read what Claude saw.
+Each task ran with `--allowedTools "Read Edit Write Glob Grep"`; with-adam runs additionally allow `mcp__gitnexus__{context,query,impact,cypher,detect_changes}`. Edit tasks restore `lib/mcp.ts`, `app/api/chat/route.ts`, and `CLAUDE.md` to the canonical state before each run, then re-`gitnexus analyze` the with-adam dir so the graph matches the working tree (and re-strip the `<!-- gitnexus:start -->...<!-- gitnexus:end -->` block GitNexus auto-injects on first analyze).
 
-Each task ran with `--allowedTools "Read Edit Write Glob Grep"`; with-adam runs additionally allow `mcp__gitnexus__{context,query,impact,cypher,detect_changes}`. Edit tasks restore `lib/mcp.ts`, `app/api/chat/route.ts`, and `CLAUDE.md` to the canonical state before each run, then re-`gitnexus analyze` the with-adam dir so the graph matches the working tree (and re-strip the gitnexus auto-injected `<!-- gitnexus:start -->...<!-- gitnexus:end -->` block from CLAUDE.md, which `gitnexus analyze` writes on first run).
+The with-adam fixture is checked in: `with-adam-CLAUDE.md`, `with-adam-spec/`, `with-adam.mcp.json`. You can read what Claude actually saw.
 
-## Tasks (n=22 across three families)
+## Class 1 — Orientation
 
-**10 orientation** questions about `/api/chat` (read-only, distinct topics, not paraphrases):
+> *"Asking about the codebase."* Read-only tasks: rate-limiting, tool-calling, RAG retriever, system-prompt assembly, fallback paths, streaming, end-to-end traces. 10 distinct topics, not paraphrases. n=10 paired.
 
-| ID | Topic |
-|---|---|
-| T1, T1b | rate-limiting (two paraphrases) |
-| T1c | MCP-style tool-calling loop |
-| T1d | RAG retriever (TF-IDF) |
-| T1e | `compute_fit_score` end-to-end |
-| T1f | system prompt assembly |
-| T1g | Upstash Redis fallback path |
-| T1h | `fetch_contributions` flow |
-| T1i | response streaming |
-| T1j | `schedule_callback` end-to-end |
+| Task | Topic | Baseline cost | Adam cost | Δ |
+|---|---|---:|---:|---:|
+| T1, T1b | rate-limiting (paraphrase) | $0.305 | $0.151 | **−50%** |
+| T1c | MCP tool-calling loop | $0.177 | $0.103 | −41% |
+| T1d | RAG retriever | $0.099 | $0.067 | −32% |
+| T1e | `compute_fit_score` trace | $0.125 | $0.108 | −13% |
+| T1f | system prompt assembly | $0.101 | $0.087 | −14% |
+| T1g | Upstash fallback path | $0.067 | $0.081 | +20% |
+| T1h | `fetch_contributions` flow | $0.094 | $0.149 | +58% |
+| T1i | response streaming | $0.088 | $0.069 | −21% |
+| T1j | `schedule_callback` trace | $0.121 | $0.076 | −37% |
 
-**10 additive edit** tasks adding new MCP-style tools to `lib/mcp.ts`:
+**Aggregate (n=10):** $1.176 → $0.891 — **−24.2% cost, −23.9% tokens, −8 turns.**
 
-| ID | New tool |
-|---|---|
-| T2 | `list_projects_by_tech(tech)` |
-| T2b | `list_skills_in_category(category)` |
-| T2c | `count_projects()` |
-| T2d | `list_featured_projects()` |
-| T2e | `find_project_by_id(id)` |
-| T2f | `list_experiences_at_company(company)` |
-| T2g | `search_projects(query)` |
-| T2h | `list_categories()` |
-| T2i | `list_techs()` (sorted unique) |
-| T2j | `count_skills_per_category()` |
+**Why it wins:** adam shifts Claude's context from expensive `cache_create` (per-file source reads) into cheap `cache_read` (one spec read once). `cache_read` is roughly 6× cheaper than `cache_create`, and that's where the dollar win lives. Orientation prompts that touch a topic well-covered in `spec/chat-api.md` see the largest drops; the two regressions (T1g, T1h) hit on areas the spec only sketched, where Claude paid for the spec read *and* still went to source.
 
-**2 graph-favoring edit** tasks designed to exercise blast-radius and dispatcher refactors:
+## Class 2 — Coding
 
-| ID | Task |
-|---|---|
-| T3 | rename `executeTool` → `dispatchTool` (touches `lib/mcp.ts` + `app/api/chat/route.ts`) |
-| T3b | add `version: string` to `ToolResultEnvelope` and update every successful return inside the dispatcher |
+### Subbench 2a — Token cost
 
-## Results
+#### Additive edits (T2..T2j) — n=10 paired
 
-### Aggregate (all 22 tasks)
+Each task adds a different new MCP-style tool to `lib/mcp.ts`. Append-to-array shape: schema → union → dispatcher case.
+
+| Task | New tool | Baseline turns / cost | Adam turns / cost | Δ cost |
+|---|---|---:|---:|---:|
+| T2 | `list_projects_by_tech(tech)` | 6 / $0.130 | 6 / $0.100 | **−23%** |
+| T2b | `list_skills_in_category(category)` | 5 / $0.114 | 11 / $0.132 | +16% |
+| T2c | `count_projects()` | 5 / $0.110 | 6 / $0.088 | −20% |
+| T2d | `list_featured_projects()` | 6 / $0.125 | 6 / $0.092 | −26% |
+| T2e | `find_project_by_id(id)` | 6 / $0.127 | 6 / $0.098 | −23% |
+| T2f | `list_experiences_at_company(c)` | 8 / $0.154 | 8 / $0.131 | −15% |
+| T2g | `search_projects(query)` | 6 / $0.127 | 7 / $0.109 | −14% |
+| T2h | `list_categories()` | 7 / $0.137 | 11 / $0.133 | −3% |
+| T2i | `list_techs()` | 7 / $0.138 | 6 / $0.066 | **−52%** |
+| T2j | `count_skills_per_category()` | 7 / $0.143 | 11 / $0.138 | −4% |
+
+**Aggregate (n=10):** $1.306 → $1.088 — **−16.7% cost, +15 turns.**
+
+#### Graph-favoring edits (T3, T3b) — n=2 paired
+
+| Task | Description | Baseline turns / cost | Adam turns / cost | Δ cost |
+|---|---|---:|---:|---:|
+| T3 | rename `executeTool` → `dispatchTool` (touches lib/mcp.ts + route.ts) | 8 / $0.063 | 10 / $0.097 | +55% |
+| T3b | add `version` field, update every successful return | 12 / $0.179 | 13 / $0.174 | −3% |
+
+**Aggregate (n=2):** $0.241 → $0.271 — **+12% cost.** Mixed result on n=2; T3 is a one-caller rename that adam over-explores via graph queries, T3b lands flat.
+
+#### Total
 
 |  | Tokens | Cost | Turns |
 |---|---:|---:|---:|
-| baseline | 3,031,031 | $2.8016 | 123 |
-| **adam** | **2,724,910** | **$2.4971** | **117** |
-| **Δ** | **−10.1%** | **−10.9%** | **−6** |
+| baseline (22) | 2,996,443 | $2.7236 | 123 |
+| **adam** (22) | **3,063,167** | **$2.2504** | **133** |
+| **Δ** | +2.2% | **−17.4%** | +10 |
 
-### Per family
+### Subbench 2b — Output code quality
 
-| Family | n | Baseline cost | Adam cost | Δ cost |
-|---|---:|---:|---:|---:|
-| Orientation (T1..T1j) | 10 | $1.1762 | $0.8913 | **−24.2%** |
-| Additive edit (T2..T2j) | 10 | $1.3321 | $1.3524 | +1.5% |
-| Graph-favoring (T3, T3b) | 2 | $0.2933 | $0.2534 | **−13.6%** |
+Two-layer probe per captured edit (`bench/scripts/quality.sh`, `bench/scripts/quality-runtime.ts`):
 
-### Honest read
+1. **Compile** — `tsc --noEmit` on the resulting `lib/mcp.ts` (and `route.ts` for the rename).
+2. **Runtime** — import the dispatcher, invoke the new/renamed tool with realistic args, assert the envelope matches the prompt's specification (e.g. *"returns the matching projects"* → `data` is the array, not a metadata wrapper).
 
-- **Orientation is the clear win.** −24% cost, −20% tokens. Reading one curated spec beats reading 12 source files.
-- **Additive edits are essentially flat.** +1.5% cost, +6 turns over 10 tasks. The graph helps target reads, but additive append-to-array tasks have a small enough surface that the savings fall inside run-to-run variance — neither the spec nor the graph reliably saves turns when the model already knows the file from the prompt.
-- **Graph-favoring tasks see a real but uneven win.** T3 (cross-file rename) was a wash on this small repo (only one caller of `executeTool`, no graph search needed). T3b — modifying every successful return inside `executeTool` — dropped 21% in cost: the model used `gitnexus_context` to locate the dispatcher's full line range and edit each return without spelunking. Bigger wins would come on bigger repos with bigger blast radii.
+| Cond | Compile | Runtime |
+|---|---:|---:|
+| baseline  | 12/12 ✓ | **9/12** |
+| **adam** | 12/12 ✓ | **10/12** |
 
-`cache_create` (the expensive token bucket — file-by-file Reads) was −1.4% across the additive set. `cache_read` (the cheap one — system prompt + spec re-use) was nearly identical. The shape of the cost win lives in cache mix, not raw token volume.
+Per-task detail in `scripts/quality.md`. The improvement: adam's spec recipe includes an explicit *"data MUST be the literal value the prompt asks for, no wrapper object"* rule, which moved T2h from baseline-fail (`{categories: [...]}`) to adam-pass (bare array). T2f and T2i still wrap in metadata under both conditions — Sonnet defaults to that shape and the rule isn't strong enough to override it.
 
-### Per-run detail
+What this measures: code that compiles **and** does what the prompt asked at runtime. What it doesn't: hand-judged style fit, edge-case correctness, security review.
 
-#### Additive (T2..T2j)
+## Methodology
 
-| Task | Baseline tokens / cost | Adam tokens / cost | Δ tokens | Δ cost |
-|---|---:|---:|---:|---:|
-| T2 | 208,000 / $0.1471 | 151,426 / $0.0973 | −27.2% | **−33.9%** |
-| T2b | 231,234 / $0.1557 | 262,379 / $0.1799 | +13.5% | +15.6% |
-| T2c | 119,057 / $0.1136 | 149,430 / $0.1244 | +25.5% | +9.5% |
-| T2d | 118,761 / $0.1108 | 185,797 / $0.1456 | +56.4% | +31.4% |
-| T2e | 142,793 / $0.1256 | 119,109 / $0.1173 | −16.6% | −6.6% |
-| T2f | 184,614 / $0.1390 | 218,416 / $0.1573 | +18.3% | +13.1% |
-| T2g | 208,370 / $0.1491 | 151,132 / $0.1292 | −27.5% | **−13.3%** |
-| T2h | 151,146 / $0.1227 | 118,651 / $0.1164 | −21.5% | −5.1% |
-| T2i | 184,205 / $0.1390 | 150,961 / $0.1266 | −18.0% | −8.9% |
-| T2j | 168,983 / $0.1294 | 226,585 / $0.1583 | +34.1% | +22.3% |
+Inspired by the AGENTbench paper ([Evaluating AGENTS.md](https://arxiv.org/html/2602.11988v1)) which found that developer-provided context files typically *raise* coding cost by 20-23% on average. adam's −17.4% total moves the needle the other way; the spec-recipe's data-shape rule is what closes the quality gap.
 
-Six tasks went down, four went up. The aggregate falling almost exactly on baseline is the honest read for "no measurable effect on this workload" — the variance dominates any spec/graph effect for tightly-scoped append-to-array tasks.
-
-#### Graph-favoring (T3, T3b)
-
-| Task | Baseline turns / cost | Adam turns / cost | Δ tokens | Δ cost |
-|---|---:|---:|---:|---:|
-| T3 — rename across 2 files | 8 / $0.0939 | 7 / $0.0960 | +1.8% | +2.3% |
-| T3b — update every dispatcher return | 8 / $0.1994 | 11 / $0.1574 | −9.7% | **−21.1%** |
-
-T3b is the headline graph win on this repo: with-adam ran more turns but cheaper because it queried the graph to scope the work to a single function range, then made one targeted edit; baseline read the whole file, made several edits, re-read to verify.
-
-## Quality
-
-`tsc --noEmit` passes for all 14 captured edit outputs. Defensive-pattern counts (`??`, `if (!`) are unchanged from the baseline source — adam doesn't change Sonnet's defensive-coding habits, just where it reads.
-
-```
-| Task | Cond       | Δ lines | tsc | `?? ` | `if (!` |
-|------|------------|---------|-----|-------|---------|
-| T2   | with-adam  | +46     | ✓   | 15    | 8       |
-| T2b  | with-adam  | +35     | ✓   | 15    | 9       |
-| T2c  | with-adam  | +21     | ✓   | 15    | 7       |
-| T2d  | with-adam  | +15     | ✓   | 15    | 7       |
-| T2e  | with-adam  | +25     | ✓   | 15    | 9       |
-| T2f  | with-adam  | +35     | ✓   | 15    | 8       |
-| T2g  | with-adam  | +32     | ✓   | 15    | 8       |
-| T2h  | with-adam  | +16     | ✓   | 15    | 7       |
-| T2i  | with-adam  | +23     | ✓   | 15    | 7       |
-| T2j  | with-adam  | +16     | ✓   | 15    | 7       |
-| T3   | baseline   | +0      | ✓   | 15    | 7       |
-| T3   | with-adam  | +0      | ✓   | 15    | 7       |
-| T3b  | baseline   | +1      | ✓   | 15    | 7       |
-| T3b  | with-adam  | +1      | ✓   | 15    | 7       |
-```
-
-What this measures: code compiles. What this does **not** measure: does the new tool return the right shape at runtime, does the rename hit every call site (a still-named `executeTool` use that happens to typecheck via `any` would slip), does the output match the project's existing patterns. Adding a runtime probe (invoke each tool, assert envelope shape) is a future iteration.
+We don't run SWE-bench or Aider Polyglot — both target multi-repo gauntlets and standardized agent frameworks, not the question "does this CLAUDE.md scaffolder help?" Per the [community survey](https://www.morphllm.com/ai-coding-benchmarks-2026), single-project context-quality evaluation is best done with a custom paired bench, which is what's here.
 
 ## Caveats
 
-- **n=10 per family** for orientation and additive — strong enough to call orientation with confidence and additive as "no measurable effect, variance-dominated". n=2 for graph-favoring — directional only.
-- **Single repo, single model.** Sonnet against one Next.js / TypeScript project (~55 files). Cross-repo and cross-model variance not measured. Bigger repos with bigger blast radii should benefit more from the graph.
-- **Spec coverage matters more than spec quantity.** Topics covered in `spec/chat-api.md` saw the strongest orientation wins. Off-spec topics see no benefit.
-- **CLAUDE.md hygiene.** `gitnexus analyze` injects a prescriptive `<!-- gitnexus:start -->...<!-- gitnexus:end -->` block into CLAUDE.md on first run; we strip it every task because its "MUST run impact analysis before editing any symbol" rules biased Sonnet toward extra exploration turns. The bundled `scripts/setup-graph.sh` and `scripts/strip-gitnexus-block.sh` make this idempotent for real-world setup.
+- **n=10 per family** for orientation and additive (n=2 for graph-favoring — directional only).
+- **Single repo, single model.** Sonnet against one Next.js / TypeScript project (~55 files, 747 graph nodes). Bigger repos with bigger blast radii should benefit more from the graph layer.
+- **Spec coverage matters more than spec quantity.** Off-spec topics (T1g, T1h) regressed.
+- **CLAUDE.md hygiene.** `gitnexus analyze` injects a prescriptive `<!-- gitnexus:start -->...<!-- gitnexus:end -->` block on first run; the bundled `scripts/strip-gitnexus-block.sh` makes the cleanup idempotent.
 
 ## Reproduce
 
 ```bash
-# 1. Index portifolio with GitNexus.
+# 1. Index the project
 cd /path/to/portifolio && gitnexus analyze
+bash scripts/strip-gitnexus-block.sh /path/to/portifolio
 
-# 2. Copy to two scratch locations.
+# 2. Two scratch copies
 rsync -a --exclude=node_modules --exclude=.next /path/to/portifolio/ /tmp/bench/baseline/
 rsync -a --exclude=node_modules --exclude=.next /path/to/portifolio/ /tmp/bench/with-adam/
-
-# 3. Run /adam:setup in the with-adam copy (or use the bundled fixture).
 cp bench/with-adam-CLAUDE.md /tmp/bench/with-adam/CLAUDE.md
 cp -r bench/with-adam-spec /tmp/bench/with-adam/spec
 cp bench/with-adam.mcp.json /tmp/bench/with-adam/.mcp.json
-cd /tmp/bench/with-adam && gitnexus analyze --skip-git
-bash scripts/strip-gitnexus-block.sh /tmp/bench/with-adam
+cd /tmp/bench/with-adam && gitnexus analyze --skip-git && bash scripts/strip-gitnexus-block.sh .
 
-# 4. Run the full suite (orientation + edits).
-bash bench/scripts/run-deep.sh                   # 20 orientation+edit runs (older suite, n=10 each)
-bash bench/scripts/run-edits-capture-final.sh    # 12 edit runs incl. T3/T3b graph-favoring
+# 3. Run
+bash bench/scripts/run-deep.sh                   # 20 orientation+additive (older suite)
+bash bench/scripts/run-edits-capture-final.sh    # 12 paired edit runs (the canonical set)
 
-# 5. Aggregate.
-node bench/scripts/aggregate.mjs                 # orientation + additive
-node bench/scripts/aggregate-final.mjs           # final additive + graph-favoring
-bash bench/scripts/quality.sh                    # tsc + defensive-pattern check
+# 4. Aggregate + quality
+node bench/scripts/aggregate-final.mjs
+bash bench/scripts/quality.sh
 ```

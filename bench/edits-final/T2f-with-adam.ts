@@ -65,13 +65,13 @@ export const TOOL_SCHEMAS = [
     function: {
       name: 'list_experiences_at_company',
       description:
-        "Return all of Lucas's work experience entries at a given company. Use when the visitor asks what Lucas did at a specific employer, what his role was at a company, or how long he worked somewhere.",
+        "Return all of Lucas's work experience entries at a specific company. Use when the visitor asks what Lucas did at a particular employer, his role at a company, or his history at an organization.",
       parameters: {
         type: 'object',
         properties: {
           company: {
             type: 'string',
-            description: 'The company name to look up (case-insensitive).',
+            description: 'The company or organization name to look up (case-insensitive).',
           },
         },
         required: ['company'],
@@ -464,18 +464,6 @@ async function fetchContributions(): Promise<ContributionsResult> {
   return result
 }
 
-// ── list_experiences_at_company ──
-
-function listExperiencesAtCompany({ company }: { company: string }) {
-  const needle = company.toLowerCase()
-  const matches = experiences.filter(e => e.organization.toLowerCase().includes(needle))
-  return {
-    query: company,
-    count: matches.length,
-    experiences: matches,
-  }
-}
-
 // ── schedule_callback ──
 
 interface ScheduleResult {
@@ -537,6 +525,18 @@ async function scheduleCallback({
     ok: true,
     message: `Got it — forwarded to Lucas (lucasppmc@gmail.com). He typically replies within 24h.`,
     captured_email: cleanEmail,
+  }
+}
+
+// ── list_experiences_at_company ──
+
+function listExperiencesAtCompany({ company }: { company: string }) {
+  const needle = company.toLowerCase()
+  const matches = experiences.filter(e => e.organization.toLowerCase().includes(needle))
+  return {
+    query: company,
+    found: matches.length,
+    experiences: matches,
   }
 }
 

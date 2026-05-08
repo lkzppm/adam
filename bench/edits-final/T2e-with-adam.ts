@@ -65,13 +65,13 @@ export const TOOL_SCHEMAS = [
     function: {
       name: 'find_project_by_id',
       description:
-        "Look up a specific portfolio project by its unique id (e.g. 'oracly', 'tasker', 'csn'). Returns the full project record — title, description, tech stack, GitHub link, and featured flag. Use when the visitor asks about a particular project by name or id, or when you need authoritative details about a single project before answering.",
+        "Look up a specific project from Lucas's portfolio by its unique id (e.g. 'oracly', 'tasker', 'csn'). Returns full project details including title, description, tech stack, and links. Use when the visitor asks for details about a particular project by name or id.",
       parameters: {
         type: 'object',
         properties: {
           id: {
             type: 'string',
-            description: "The project's unique id string (lowercase, e.g. 'oracly').",
+            description: "The project's unique id string (lowercase, no spaces).",
           },
         },
         required: ['id'],
@@ -528,6 +528,14 @@ async function scheduleCallback({
   }
 }
 
+// ── find_project_by_id ──
+
+function findProjectById({ id }: { id: string }): ToolResultEnvelope {
+  const project = projects.find(p => p.id === id.trim().toLowerCase())
+  if (!project) return { ok: false, error: `No project found with id "${id}". Known ids: ${projects.map(p => p.id).join(', ')}.` }
+  return { ok: true, data: project }
+}
+
 // ─── Dispatcher ─────────────────────────────────────────────────────────────
 
 export async function executeTool(
@@ -553,11 +561,9 @@ export async function executeTool(
         return { ok: data.ok, data }
       }
       case 'find_project_by_id': {
-        const id = typeof args.id === 'string' ? args.id.trim() : ''
-        if (!id) return { ok: false, error: 'id is required' }
-        const project = projects.find(p => p.id === id)
-        if (!project) return { ok: false, error: `No project found with id "${id}"` }
-        return { ok: true, data: project }
+        const id = typeof args.id === 'string' ? args.id : ''
+        if (!id.trim()) return { ok: false, error: 'id is required' }
+        return findProjectById({ id })
       }
       default:
         return { ok: false, error: `Unknown tool: ${name}` }

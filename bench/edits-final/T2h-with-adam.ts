@@ -65,7 +65,7 @@ export const TOOL_SCHEMAS = [
     function: {
       name: 'list_categories',
       description:
-        "Return the list of skill category titles from Lucas's portfolio (e.g. 'Languages', 'AI / ML', 'Cloud & DevOps'). Use when the visitor asks what kinds of skills Lucas has, what areas he covers, or wants a high-level overview of his expertise before drilling into specifics.",
+        "Return a sorted list of Lucas's skill category names (e.g. 'AI & ML', 'Frontend', 'DevOps'). Use this when the visitor asks what areas or domains Lucas specializes in, what categories of skills he has, or wants a high-level overview of his technical focus areas.",
       parameters: {
         type: 'object',
         properties: {},
@@ -547,8 +547,8 @@ export async function executeTool(
         return { ok: data.ok, data }
       }
       case 'list_categories': {
-        const categories = [...skillCategories].map(c => c.title).sort()
-        return { ok: true, data: { categories } }
+        const categories = skillCategories.map(c => c.title).sort()
+        return { ok: true, data: categories }
       }
       default:
         return { ok: false, error: `Unknown tool: ${name}` }

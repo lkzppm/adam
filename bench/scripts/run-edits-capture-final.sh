@@ -67,15 +67,13 @@ for i in $(seq 0 $((N_TASKS - 1))); do
   prompt=$(jq -r ".[$i].prompt" "$TASKS")
   echo "[$(date +%H:%M:%S)] === task $id ($family) ===" | tee -a "$LOG"
 
-  if [ "$family" = "graph-edit" ]; then
-    run_one "$id" "baseline" "$prompt" &
-    pid_b=$!
-    run_one "$id" "with-adam" "$prompt" &
-    pid_w=$!
-    wait $pid_b $pid_w
-  else
-    run_one "$id" "with-adam" "$prompt"
-  fi
+  # Run both conditions in parallel for every task so quality.sh has paired
+  # `.ts` outputs for runtime probing.
+  run_one "$id" "baseline" "$prompt" &
+  pid_b=$!
+  run_one "$id" "with-adam" "$prompt" &
+  pid_w=$!
+  wait $pid_b $pid_w
 done
 
 echo "[$(date +%H:%M:%S)] all done" | tee -a "$LOG"

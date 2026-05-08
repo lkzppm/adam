@@ -68,7 +68,7 @@ export type ToolName = 'compute_fit_score' | 'fetch_contributions' | 'schedule_c
 
 export interface ToolResultEnvelope {
   ok: boolean
-  version?: string
+  version: string
   data?: unknown
   error?: string
 }
@@ -521,7 +521,7 @@ export async function executeTool(
     switch (name) {
       case 'compute_fit_score': {
         const jd = typeof args.job_description === 'string' ? args.job_description : ''
-        if (!jd.trim()) return { ok: false, error: 'job_description is required' }
+        if (!jd.trim()) return { ok: false, version: '1', error: 'job_description is required' }
         return { ok: true, version: '1', data: computeFitScore({ job_description: jd }) }
       }
       case 'fetch_contributions': {
@@ -533,13 +533,13 @@ export async function executeTool(
         const email = typeof safeArgs.email === 'string' ? safeArgs.email : ''
         const role_context = typeof safeArgs.role_context === 'string' ? safeArgs.role_context : ''
         const data = await scheduleCallback({ email, role_context })
-        return { ok: data.ok, data }
+        return { ok: data.ok, version: '1', data }
       }
       default:
-        return { ok: false, error: `Unknown tool: ${name}` }
+        return { ok: false, version: '1', error: `Unknown tool: ${name}` }
     }
   } catch (err) {
     console.error(`[tool ${name}]`, err)
-    return { ok: false, error: (err as Error).message ?? 'Tool execution failed' }
+    return { ok: false, version: '1', error: (err as Error).message ?? 'Tool execution failed' }
   }
 }

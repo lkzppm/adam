@@ -40,6 +40,24 @@ export const TOOL_SCHEMAS = [
   {
     type: 'function',
     function: {
+      name: 'search_projects',
+      description:
+        "Search Lucas's portfolio projects by keyword. Returns all projects whose title or description matches the query. Use when a visitor asks about a specific type of project, technology area, or wants to know what Lucas has built.",
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'Keyword or phrase to match against project titles and descriptions.',
+          },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'schedule_callback',
       description:
         "Capture a visitor's contact info and intent so Lucas can reach back out. Use when the visitor expresses interest in scheduling a call, wants Lucas to contact them, shares a role/opportunity they want to discuss, or asks how to reach Lucas to set something up. Always confirm the email and ask for brief context before calling. Sends an email to Lucas.",
@@ -57,24 +75,6 @@ export const TOOL_SCHEMAS = [
           },
         },
         required: ['email', 'role_context'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'search_projects',
-      description:
-        "Search Lucas's portfolio projects by keyword. Returns all projects whose title or description contains the query string (case-insensitive). Use when the visitor asks about a specific project, a type of project, or wants to know if Lucas built something related to a topic.",
-      parameters: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: 'The search term to match against project titles and descriptions.',
-          },
-        },
-        required: ['query'],
       },
     },
   },
@@ -562,9 +562,9 @@ export async function executeTool(
         return { ok: data.ok, data }
       }
       case 'search_projects': {
-        const q = typeof args.query === 'string' ? args.query : ''
-        if (!q.trim()) return { ok: false, error: 'query is required' }
-        return { ok: true, data: searchProjects({ query: q }) }
+        const query = typeof args.query === 'string' ? args.query : ''
+        if (!query.trim()) return { ok: false, error: 'query is required' }
+        return { ok: true, data: searchProjects({ query }) }
       }
       default:
         return { ok: false, error: `Unknown tool: ${name}` }

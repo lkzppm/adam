@@ -65,13 +65,13 @@ export const TOOL_SCHEMAS = [
     function: {
       name: 'list_projects_by_tech',
       description:
-        "Return all of Lucas's portfolio projects that use a given technology. Call this when the visitor asks which projects use a specific language, framework, or tool (e.g. 'what has Lucas built with Python?', 'any projects using React?').",
+        "List Lucas's projects that use a specific technology or framework. Returns project titles, descriptions, and full tech stacks. Use when a visitor asks which projects use a particular language, framework, or tool (e.g. 'what has Lucas built with Python?', 'any React projects?', 'show me LangChain work').",
       parameters: {
         type: 'object',
         properties: {
           tech: {
             type: 'string',
-            description: 'The technology to filter by (e.g. "Python", "FastAPI", "React").',
+            description: 'The technology, language, or framework to filter by (e.g. "Python", "React", "LangChain").',
           },
         },
         required: ['tech'],
@@ -530,25 +530,19 @@ async function scheduleCallback({
 
 // ── list_projects_by_tech ──
 
-interface ProjectSummary {
+interface ProjectMatch {
   id: string
   title: string
   description: string
   techStack: string[]
 }
 
-interface ListProjectsResult {
-  tech: string
-  matches: ProjectSummary[]
-  total: number
-}
-
-function listProjectsByTech({ tech }: { tech: string }): ListProjectsResult {
-  const needle = tech.toLowerCase()
+function listProjectsByTech({ tech }: { tech: string }): { matches: ProjectMatch[]; query: string } {
+  const needle = tech.toLowerCase().trim()
   const matches = projects
     .filter(p => p.techStack.some(t => t.toLowerCase().includes(needle)))
     .map(({ id, title, description, techStack }) => ({ id, title, description, techStack }))
-  return { tech, matches, total: matches.length }
+  return { query: tech, matches }
 }
 
 // ─── Dispatcher ─────────────────────────────────────────────────────────────
@@ -578,7 +572,7 @@ export async function executeTool(
       case 'list_projects_by_tech': {
         const tech = typeof args.tech === 'string' ? args.tech : ''
         if (!tech.trim()) return { ok: false, error: 'tech is required' }
-        return { ok: true, data: listProjectsByTech({ tech: tech.trim() }) }
+        return { ok: true, data: listProjectsByTech({ tech }) }
       }
       default:
         return { ok: false, error: `Unknown tool: ${name}` }

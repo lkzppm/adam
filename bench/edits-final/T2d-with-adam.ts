@@ -40,18 +40,6 @@ export const TOOL_SCHEMAS = [
   {
     type: 'function',
     function: {
-      name: 'list_featured_projects',
-      description:
-        "Return Lucas's featured portfolio projects with their titles, descriptions, tech stacks, and links. Call this when the visitor asks about Lucas's main projects, what he has built, his portfolio highlights, or wants to see examples of his work.",
-      parameters: {
-        type: 'object',
-        properties: {},
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
       name: 'schedule_callback',
       description:
         "Capture a visitor's contact info and intent so Lucas can reach back out. Use when the visitor expresses interest in scheduling a call, wants Lucas to contact them, shares a role/opportunity they want to discuss, or asks how to reach Lucas to set something up. Always confirm the email and ask for brief context before calling. Sends an email to Lucas.",
@@ -69,6 +57,18 @@ export const TOOL_SCHEMAS = [
           },
         },
         required: ['email', 'role_context'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_featured_projects',
+      description:
+        "Return the subset of Lucas's portfolio projects that are marked as featured. Use when a visitor asks which projects Lucas is most proud of, what his best or highlighted work is, or wants a quick overview of his top projects.",
+      parameters: {
+        type: 'object',
+        properties: {},
       },
     },
   },
@@ -458,6 +458,12 @@ async function fetchContributions(): Promise<ContributionsResult> {
   return result
 }
 
+// ── list_featured_projects ──
+
+function listFeaturedProjects() {
+  return projects.filter(p => p.featured)
+}
+
 // ── schedule_callback ──
 
 interface ScheduleResult {
@@ -535,12 +541,12 @@ export async function executeTool(
         if (!jd.trim()) return { ok: false, error: 'job_description is required' }
         return { ok: true, data: computeFitScore({ job_description: jd }) }
       }
-      case 'list_featured_projects': {
-        return { ok: true, data: projects.filter(p => p.featured) }
-      }
       case 'fetch_contributions': {
         const data = await fetchContributions()
         return { ok: true, data }
+      }
+      case 'list_featured_projects': {
+        return { ok: true, data: listFeaturedProjects() }
       }
       case 'schedule_callback': {
         const safeArgs = (args ?? {}) as Record<string, unknown>

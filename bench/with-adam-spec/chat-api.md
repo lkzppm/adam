@@ -91,6 +91,8 @@ Read the slices the graph returns, not the whole file. The middle of the file is
 3. **Add a case to `executeTool`** (the `switch (name)` block). Validate `args`, call your executor, return `{ ok: true, data: ... }` or `{ ok: false, error: '...' }`.
 4. **Optionally extract a helper function** above the dispatcher for any non-trivial logic. Keep the function pure; let the dispatcher handle the envelope.
 
+**Data shape rule for `ok: true` returns:** `data` MUST be the **literal value** the prompt asks for — no wrapper object, no echoed args. If the prompt says "returns the projects matching X", `data` is the array of projects, not `{ tech: "...", count: N, projects: [...] }`. If it says "returns `{ count }`", `data` is `{ count: N }` — exactly. Wrapping in metadata makes the consumer parse a layer it didn't ask for. Match the prompt verbatim.
+
 Use `gitnexus_context` on each of the symbols above to get the current line range before editing.
 
 Data is in `data/portfolio.ts`: `personalInfo`, `projects` (`{ id, title, description, techStack, github, image, featured }`), `skillCategories` (`{ title, skills }`), `experiences`. Use the actual field names — `techStack` not `tags`.

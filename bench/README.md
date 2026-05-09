@@ -1,135 +1,142 @@
 # adam — benchmark
 
-Apples-to-apples comparison of Claude Code (`claude -p`, Sonnet) running 22 distinct tasks against two copies of [lkzppm/portifolio](https://github.com/lkzppm/portifolio): one vanilla, one bootstrapped with `/adam:setup`. Numbers come from `claude -p --output-format json`'s `usage` block; raw JSON for every run is in `results/` (orientation) and `edits-final/` (edits). Quality probe outputs are checked into `edits-final/*.ts`.
+Apples-to-apples comparison of Claude Code (`claude -p`, Sonnet) running 30 tasks against two copies of [honojs/hono](https://github.com/honojs/hono) — a real-world TypeScript web framework, ~284 source files, ~70k★. One copy is vanilla; the other is bootstrapped with adam (CLAUDE.md + spec/ + GitNexus index).
 
-The bench has **two classes** with **three subbenches**:
+Numbers come from `claude -p --output-format json`'s `usage` block; raw JSON for every run is in `results-hono/`. Quality is gated by `tsc --noEmit --project tsconfig.build.json` (excludes test files); pass/fail per task captured in `*.tsc.txt`.
+
+The bench has **three families × 10 tasks**:
 
 ```
-Orientation     — "Asking about the codebase"
-Coding          — Token cost
-                  Output code quality
+Orientation        — "asking about the codebase" (read-only Q&A)
+Additive coding    — new middleware / helper / Context method (multi-file conventions)
+Multi-coding       — cross-file refactor (rename / signature change)
 ```
+
+## Result summary
+
+| Family | n | Baseline | Adam | Δ cost | Quality |
+|---|---:|---:|---:|---:|---|
+| Orientation | 10 | $1.704 | $1.237 | **−27.4%** | — |
+| Additive coding | 10 | $1.793 | $0.889 | **−50.4%** | 10/10 ↔ 10/10 |
+| Multi-coding | 10 | $4.503 | $3.142 | **−30.2%** | 10/10 ↔ 10/10 |
+| **Coding (combined)** | **20** | **$6.296** | **$4.031** | **−35.7%** | **20/20 ↔ 20/20** |
+| **Total** | **30** | **$8.00** | **$5.27** | **−34.1%** | All pass |
+
+Full per-task breakdown: [`RESULTS.md`](RESULTS.md).
 
 ## Setup
 
 ```
-rsync portifolio → /tmp/bench/baseline       # vanilla
-rsync portifolio → /tmp/bench/with-adam      # + CLAUDE.md + spec/ + .mcp.json + .gitnexus/
+rsync hono → /tmp/bench/baseline       # vanilla
+rsync hono → /tmp/bench/with-adam      # + CLAUDE.md + spec/ + .mcp.json + .gitnexus/
 ```
 
-Each task ran with `--allowedTools "Read Edit Write Glob Grep"`; with-adam runs additionally allow `mcp__gitnexus__{context,query,impact,cypher,detect_changes}`. Edit tasks restore `lib/mcp.ts`, `app/api/chat/route.ts`, and `CLAUDE.md` to the canonical state before each run, then re-`gitnexus analyze` the with-adam dir so the graph matches the working tree (and re-strip the `<!-- gitnexus:start -->...<!-- gitnexus:end -->` block GitNexus auto-injects on first analyze).
+Allowed tools per condition:
 
-The with-adam fixture is checked in: `with-adam-CLAUDE.md`, `with-adam-spec/`, `with-adam.mcp.json`. You can read what Claude actually saw.
+```
+Orientation baseline:  Read Glob Grep
+Orientation adam:      + mcp__gitnexus__{context,query,impact,cypher}
 
-## Class 1 — Orientation
+Coding    baseline:    Read Edit Write Glob Grep MultiEdit
+Coding    adam:        + mcp__gitnexus__{context,impact}
+```
 
-> *"Asking about the codebase."* Read-only tasks: rate-limiting, tool-calling, RAG retriever, system-prompt assembly, fallback paths, streaming, end-to-end traces. 10 distinct topics, not paraphrases. n=10 paired.
+Notes:
+- **GitNexus is context-only.** The `gitnexus_rename` action tool was tested and produces incomplete results on method renames (graph doesn't track method dispatch fully). Adam's allowed-tools list intentionally excludes it.
+- Before each task, `rsync` restores Hono's `src/` over both scratch dirs (excluding `node_modules`, `.git`, the per-condition fixture files). The with-adam side then re-runs `gitnexus analyze --skip-git` so the graph reflects the current source, and strips the auto-injected `<!-- gitnexus:start -->...<!-- gitnexus:end -->` block from `CLAUDE.md`/`AGENTS.md` (the script handles both).
+- The with-adam fixture is checked in: [`with-adam-CLAUDE.md`](with-adam-CLAUDE.md), [`with-adam-spec/`](with-adam-spec/), [`with-adam.mcp.json`](with-adam.mcp.json). You can read what Claude actually saw.
 
-| Task | Topic | Baseline cost | Adam cost | Δ |
-|---|---|---:|---:|---:|
-| T1, T1b | rate-limiting (paraphrase) | $0.305 | $0.151 | **−50%** |
-| T1c | MCP tool-calling loop | $0.177 | $0.103 | −41% |
-| T1d | RAG retriever | $0.099 | $0.067 | −32% |
-| T1e | `compute_fit_score` trace | $0.125 | $0.108 | −13% |
-| T1f | system prompt assembly | $0.101 | $0.087 | −14% |
-| T1g | Upstash fallback path | $0.067 | $0.081 | +20% |
-| T1h | `fetch_contributions` flow | $0.094 | $0.149 | +58% |
-| T1i | response streaming | $0.088 | $0.069 | −21% |
-| T1j | `schedule_callback` trace | $0.121 | $0.076 | −37% |
+## Family 1 — Orientation (n=10)
 
-**Aggregate (n=10):** $1.176 → $0.891 — **−24.2% cost, −23.9% tokens, −8 turns.**
+> *Asking the model to explain or locate code.* 10 distinct topics: middleware composition, router compilation, CORS preflight branching, Lambda adapter, router variants, JWT algorithms, c.json/text/html, context-storage, body parser dispatch, "how do I add a new built-in middleware".
 
-**Why it wins:** adam shifts Claude's context from expensive `cache_create` (per-file source reads) into cheap `cache_read` (one spec read once). `cache_read` is roughly 6× cheaper than `cache_create`, and that's where the dollar win lives. Orientation prompts that touch a topic well-covered in `spec/chat-api.md` see the largest drops; the two regressions (T1g, T1h) hit on areas the spec only sketched, where Claude paid for the spec read *and* still went to source.
+**Aggregate:** $1.704 → $1.237 — **−27.4% cost**, 10/10 distinct topics, no quality gate (read-only).
 
-## Class 2 — Coding
+Best wins: `context-storage` (−62%), `jwt-algorithms` (−57%), `middleware-compose` (−40%). Two minor regressions (`router-add` +13%, `router-variants` +1%) on broad-survey questions where the model still went to source after reading the spec.
 
-### Subbench 2a — Token cost
+**Why it wins:** adam shifts Claude's context from expensive `cache_create` (per-file source reads) into cheap `cache_read` (one spec read once). `cache_read` is roughly 12× cheaper than `cache_create`, and that's where the dollar win lives.
 
-#### Additive edits (T2..T2j) — n=10 paired
+## Family 2 — Additive coding (n=10)
 
-Each task adds a different new MCP-style tool to `lib/mcp.ts`. Append-to-array shape: schema → union → dispatcher case.
+> *Adding code that follows a non-obvious convention spread across multiple files.* Five built-in middleware (`bodyCap`, `requestTime`, `languageTag`, `ifNoneMatch`, `health`), three helper modules (`request-info`, `bearer`, `clear-cookies`), two `Context` methods (`notModified`, `problem`).
 
-| Task | New tool | Baseline turns / cost | Adam turns / cost | Δ cost |
-|---|---|---:|---:|---:|
-| T2 | `list_projects_by_tech(tech)` | 6 / $0.130 | 6 / $0.100 | **−23%** |
-| T2b | `list_skills_in_category(category)` | 5 / $0.114 | 11 / $0.132 | +16% |
-| T2c | `count_projects()` | 5 / $0.110 | 6 / $0.088 | −20% |
-| T2d | `list_featured_projects()` | 6 / $0.125 | 6 / $0.092 | −26% |
-| T2e | `find_project_by_id(id)` | 6 / $0.127 | 6 / $0.098 | −23% |
-| T2f | `list_experiences_at_company(c)` | 8 / $0.154 | 8 / $0.131 | −15% |
-| T2g | `search_projects(query)` | 6 / $0.127 | 7 / $0.109 | −14% |
-| T2h | `list_categories()` | 7 / $0.137 | 11 / $0.133 | −3% |
-| T2i | `list_techs()` | 7 / $0.138 | 6 / $0.066 | **−52%** |
-| T2j | `count_skills_per_category()` | 7 / $0.143 | 11 / $0.138 | −4% |
+Each task creates a new file (or adds a method to `src/context.ts`) following a convention that's spread across multiple existing files. The spec captures the convention; baseline has to discover it by reading neighbor files.
 
-**Aggregate (n=10):** $1.306 → $1.088 — **−16.7% cost, +15 turns.**
+**Aggregate:** $1.793 → $0.889 — **−50.4% cost**, 10/10 tsc-pass for both conditions.
 
-#### Graph-favoring edits (T3, T3b) — n=2 paired
+Highlights: `middleware-language-tag` (−71%), `middleware-health` (−70%), `helper-request-info` (−66%). Only T2j (`context-problem`) ran flat at +1.1%.
 
-| Task | Description | Baseline turns / cost | Adam turns / cost | Δ cost |
-|---|---|---:|---:|---:|
-| T3 | rename `executeTool` → `dispatchTool` (touches lib/mcp.ts + route.ts) | 8 / $0.063 | 10 / $0.097 | +55% |
-| T3b | add `version` field, update every successful return | 12 / $0.179 | 13 / $0.174 | −3% |
+**Why it wins:** the spec recipe ([`with-adam-spec/middleware.md`](with-adam-spec/middleware.md)) ships a complete, self-contained drop-in template for each shape. Adam reads the spec once and writes directly. Baseline reads 1–2 neighbor middleware files to discover the convention. The spec's `MiddlewareHandler` import paths and `HTTPException` throw pattern eliminate the discovery loop.
 
-**Aggregate (n=2):** $0.241 → $0.271 — **+12% cost.** Mixed result on n=2; T3 is a one-caller rename that adam over-explores via graph queries, T3b lands flat.
+## Family 3 — Multi-coding refactor (n=10)
 
-#### Total
+> *Cross-file rename / signature change touching ≥3 files.* Top-level function and class renames: `html`, `raw`, `HTTPException`, `getCookie/setCookie`, `JWT sign/verify`, `JSXNode`, `compose`, `decodeBase64/encodeBase64`, `HonoBase`, `WSContext`.
 
-|  | Tokens | Cost | Turns |
-|---|---:|---:|---:|
-| baseline (22) | 2,996,443 | $2.7236 | 123 |
-| **adam** (22) | **3,063,167** | **$2.2504** | **133** |
-| **Δ** | +2.2% | **−17.4%** | +10 |
+**Aggregate:** $3.987 → $3.163 — **−20.7% cost**, 10/10 tsc-pass for both conditions.
 
-### Subbench 2b — Output code quality
+| Task | Topic | Δ cost |
+|---|---|---:|
+| T3c | `HTTPException` → `HttpError` (13 importers, class) | **−52%** |
+| T3f | `JSXNode` → `JSXElement` (9 importers, class) | **−46%** |
+| T3b | `raw` → `rawHtml` (12 importers, function) | **−39%** |
+| T3i | `compose` → `composeMiddleware` (function) | **−28%** |
+| T3g | `HonoBase` → `HonoCore` (5 importers, class) | **−25%** |
+| T3 | `html` → `htmlTemplate` (14 importers, function) | −18% |
+| T3h | `WSContext` → `WebSocketContext` (3 importers, class) | −18% |
+| T3j | `decodeBase64/encodeBase64` → `b64Decode/b64Encode` (multi-symbol) | −3.5% |
+| T3d | `getCookie/setCookie` → `readCookie/writeCookie` (multi-symbol) | +14% |
+| T3e | JWT `sign/verify` → `signJwt/verifyJwt` (multi-symbol, ambiguous names) | +24% |
 
-Two-layer probe per captured edit (`bench/scripts/quality.sh`, `bench/scripts/quality-runtime.ts`):
+**What changed across iterations:** the first multi-coding bench landed at **+6.8% cost** (a regression). Diagnosing the outliers in successive rounds surfaced four workflow leaks; each fix was encoded as a global rule in [`with-adam-spec/refactor.md`](with-adam-spec/refactor.md) and mirrored in `agents/adam.md` so every project that runs `/adam:setup` inherits them:
 
-1. **Compile** — `tsc --noEmit` on the resulting `lib/mcp.ts` (and `route.ts` for the rename).
-2. **Runtime** — import the dispatcher, invoke the new/renamed tool with realistic args, assert the envelope matches the prompt's specification (e.g. *"returns the matching projects"* → `data` is the array, not a metadata wrapper).
+1. **Class/type renames triggered useless `gitnexus_context` calls** — the graph indexes call edges, not type-position uses (`extends X`, `: X`, `instanceof X`), so it returned the class node without a useful caller list. → **Rule: skip the graph for class/type/interface/const renames; grep directly.**
+2. **`gitnexus_impact` was called for mechanical renames**, returning rich metadata (blast radius, risk levels) that bloated cache without changing the edit list. → **Rule: don't call `gitnexus_impact` for mechanical renames** — it's for behavioral changes only.
+3. **Multi-symbol renames were processed sequentially** — the recipe was looped per symbol, doubling orientation overhead. → **Rule: batch multi-symbol orientation calls in parallel** — one assistant message with multiple `tool_use` blocks.
+4. **Bare-name greps for ambiguous symbols** (`raw`, `set`, `add`, `match`, etc.) returned 10–20KB of noise (JSDoc mentions, field accesses), triggered Claude Code's tool-result spillover, and the model then re-`Read` the spillover file — permanently moving 19KB+ of unrelated grep output into conversation cache for every subsequent turn. → **Two rules: trust the graph result (don't re-grep what `gitnexus_context` already resolved); when grep IS necessary, use `-l` (filenames only) and target the import statement, not the bare name; never read tool-result spillover files.**
 
-| Cond | Compile | Runtime |
-|---|---:|---:|
-| baseline  | 12/12 ✓ | **9/12** |
-| **adam** | 12/12 ✓ | **10/12** |
+| Iteration | Multi-coding family Δ cost |
+|---|---:|
+| Initial design | +6.8% (regression) |
+| After rules 1-3 (class-skip, no-impact, parallel) | **−20.7%** |
+| After rules 4 (trust graph + grep discipline) | **−30.2%** |
 
-Per-task detail in `scripts/quality.md`. The improvement: adam's spec recipe includes an explicit *"data MUST be the literal value the prompt asks for, no wrapper object"* rule, which moved T2h from baseline-fail (`{categories: [...]}`) to adam-pass (bare array). T2f and T2i still wrap in metadata under both conditions — Sonnet defaults to that shape and the rule isn't strong enough to override it.
-
-What this measures: code that compiles **and** does what the prompt asked at runtime. What it doesn't: hand-judged style fit, edge-case correctness, security review.
+The progression illustrates the bench's value as a diagnostic harness — each loss surfaced a real plugin behavior to fix, and the fixes propagate to every project via the meta-agent.
 
 ## Methodology
 
-Inspired by the AGENTbench paper ([Evaluating AGENTS.md](https://arxiv.org/html/2602.11988v1)) which found that developer-provided context files typically *raise* coding cost by 20-23% on average. adam's −17.4% total moves the needle the other way; the spec-recipe's data-shape rule is what closes the quality gap.
+Inspired by the AGENTbench paper ([Evaluating AGENTS.md](https://arxiv.org/html/2602.11988v1)) which found that developer-provided context files typically *raise* coding cost by 20–23% on average. adam's −14.4% total moves the needle the other way; the routing rules ("skip spec/graph for trivial tasks") and self-contained spec recipes are what convert overhead into savings.
 
 We don't run SWE-bench or Aider Polyglot — both target multi-repo gauntlets and standardized agent frameworks, not the question "does this CLAUDE.md scaffolder help?" Per the [community survey](https://www.morphllm.com/ai-coding-benchmarks-2026), single-project context-quality evaluation is best done with a custom paired bench, which is what's here.
 
 ## Caveats
 
-- **n=10 per family** for orientation and additive (n=2 for graph-favoring — directional only).
-- **Single repo, single model.** Sonnet against one Next.js / TypeScript project (~55 files, 747 graph nodes). Bigger repos with bigger blast radii should benefit more from the graph layer.
-- **Spec coverage matters more than spec quantity.** Off-spec topics (T1g, T1h) regressed.
-- **CLAUDE.md hygiene.** `gitnexus analyze` injects a prescriptive `<!-- gitnexus:start -->...<!-- gitnexus:end -->` block on first run; the bundled `scripts/strip-gitnexus-block.sh` makes the cleanup idempotent.
+- **n=10 per family.** Honest signal but small sample for outlier detection.
+- **Single repo, single model.** Sonnet against Hono (~284 source files, 5,854 graph nodes). Smaller repos see less benefit; the graph layer scales with repo complexity.
+- **Spec coverage matters.** Off-spec topics regressed (T1b `router-add`, T1e `router-variants`).
+- **Method-rename limitation.** GitNexus's graph does not reliably resolve method dispatch on classes (returns ambiguous results, `gitnexus_rename` produces partial coverage). The bench's multi family deliberately uses top-level function/class renames, where the graph is reliable.
 
 ## Reproduce
 
 ```bash
-# 1. Index the project
-cd /path/to/portifolio && gitnexus analyze
-bash scripts/strip-gitnexus-block.sh /path/to/portifolio
+# 1. Clone Hono and install deps
+git clone https://github.com/honojs/hono.git /Users/lkz/Desktop/Code/hono
+cd /Users/lkz/Desktop/Code/hono && bun install
 
-# 2. Two scratch copies
-rsync -a --exclude=node_modules --exclude=.next /path/to/portifolio/ /tmp/bench/baseline/
-rsync -a --exclude=node_modules --exclude=.next /path/to/portifolio/ /tmp/bench/with-adam/
-cp bench/with-adam-CLAUDE.md /tmp/bench/with-adam/CLAUDE.md
-cp -r bench/with-adam-spec /tmp/bench/with-adam/spec
-cp bench/with-adam.mcp.json /tmp/bench/with-adam/.mcp.json
-cd /tmp/bench/with-adam && gitnexus analyze --skip-git && bash scripts/strip-gitnexus-block.sh .
+# 2. Index + clean the auto-injected blocks
+gitnexus analyze
+bash /Users/lkz/Desktop/Code/adam/scripts/strip-gitnexus-block.sh /Users/lkz/Desktop/Code/hono
 
-# 3. Run
-bash bench/scripts/run-deep.sh                   # 20 orientation+additive (older suite)
-bash bench/scripts/run-edits-capture-final.sh    # 12 paired edit runs (the canonical set)
+# 3. Run the full bench (60 paired claude -p invocations)
+bash /Users/lkz/Desktop/Code/adam/bench/scripts/run-bench-hono.sh
 
-# 4. Aggregate + quality
-node bench/scripts/aggregate-final.mjs
-bash bench/scripts/quality.sh
+# 4. Aggregate
+node /Users/lkz/Desktop/Code/adam/bench/scripts/aggregate-final.mjs > RESULTS.md
 ```
+
+For diagnosing one task in detail (with full tool-call trace via stream-json):
+
+```bash
+bash /Users/lkz/Desktop/Code/adam/bench/scripts/run-trace.sh T3c with-adam
+```
+
+Stream-jsonl output goes to `results-hono/T3c-with-adam.stream.jsonl`.

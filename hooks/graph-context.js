@@ -10,30 +10,30 @@
  * Bails silently if there's no `.gitnexus/` index — adam degrades to
  * spec-only mode and Claude works off the static spec content.
  */
-const fs = require('fs');
-const path = require('path');
-const { spawnSync, spawn } = require('child_process');
+import fs from "node:fs";
+import path from "node:path";
+import { spawnSync, spawn } from "node:child_process";
 
 function readInput() {
   try {
-    return JSON.parse(fs.readFileSync(0, 'utf-8'));
+    return JSON.parse(fs.readFileSync(0, "utf-8"));
   } catch {
     return {};
   }
 }
 
 function isGlobalRegistryDir(candidate) {
-  if (fs.existsSync(path.join(candidate, 'meta.json'))) return false;
+  if (fs.existsSync(path.join(candidate, "meta.json"))) return false;
   return (
-    fs.existsSync(path.join(candidate, 'registry.json')) ||
-    fs.existsSync(path.join(candidate, 'repos'))
+    fs.existsSync(path.join(candidate, "registry.json")) ||
+    fs.existsSync(path.join(candidate, "repos"))
   );
 }
 
 function findGitNexusRoot(startDir) {
   let dir = startDir;
   for (let i = 0; i < 5; i++) {
-    const candidate = path.join(dir, '.gitnexus');
+    const candidate = path.join(dir, ".gitnexus");
     if (fs.existsSync(candidate) && !isGlobalRegistryDir(candidate)) {
       return { gitNexusDir: candidate, repoRoot: dir };
     }
@@ -45,17 +45,17 @@ function findGitNexusRoot(startDir) {
 }
 
 function gitnexusOnPath() {
-  const isWin = process.platform === 'win32';
-  const which = spawnSync(isWin ? 'where' : 'which', ['gitnexus'], {
-    encoding: 'utf-8',
+  const isWin = process.platform === "win32";
+  const which = spawnSync(isWin ? "where" : "which", ["gitnexus"], {
+    encoding: "utf-8",
     timeout: 3000,
-    stdio: ['pipe', 'pipe', 'pipe'],
+    stdio: ["pipe", "pipe", "pipe"],
   });
   return which.status === 0;
 }
 
 function handlePostToolUse(input) {
-  const tool = input.tool_name || '';
+  const tool = input.tool_name || "";
   if (!/^(Edit|Write|MultiEdit)$/.test(tool)) return;
 
   const cwd = input.cwd || process.cwd();
@@ -67,7 +67,7 @@ function handlePostToolUse(input) {
   // LadybugDB is single-writer; concurrent analyze calls collide on the WAL.
   // The user's next prompt still gets a fresh-enough graph because the
   // already-running analyze will finish well before any human-paced prompt.
-  const lockPath = path.join(found.gitNexusDir, '.analyze.lock');
+  const lockPath = path.join(found.gitNexusDir, ".analyze.lock");
   try {
     const lockStat = fs.existsSync(lockPath) ? fs.statSync(lockPath) : null;
     // Treat stale locks (>2 min old) as crashed runs and proceed anyway.
@@ -81,36 +81,44 @@ function handlePostToolUse(input) {
   // the graph isn't current. The detached analyze below will clear .stale
   // when it succeeds (by overwriting meta.json's lastIndexed).
   try {
-    fs.writeFileSync(path.join(found.gitNexusDir, '.stale'), new Date().toISOString());
+    fs.writeFileSync(path.join(found.gitNexusDir, ".stale"), new Date().toISOString());
   } catch {
     /* ignore */
   }
 
   // Detached re-index — agent never blocks on this.
   try {
-    const isWin = process.platform === 'win32';
+    const isWin = process.platform === "win32";
     const onPath = gitnexusOnPath();
-    const cmd = onPath ? (isWin ? 'gitnexus.cmd' : 'gitnexus') : (isWin ? 'npx.cmd' : 'npx');
-    const args = onPath ? ['analyze', '--skip-git'] : ['-y', 'gitnexus', 'analyze', '--skip-git'];
+    const cmd = onPath ? (isWin ? "gitnexus.cmd" : "gitnexus") : isWin ? "npx.cmd" : "npx";
+    const args = onPath ? ["analyze", "--skip-git"] : ["-y", "gitnexus", "analyze", "--skip-git"];
     const child = spawn(cmd, args, {
       cwd: found.repoRoot,
       detached: true,
-      stdio: 'ignore',
+      stdio: "ignore",
     });
-    child.on('exit', () => {
-      try { fs.unlinkSync(lockPath); } catch { /* ignore */ }
+    child.on("exit", () => {
+      try {
+        fs.unlinkSync(lockPath);
+      } catch {
+        /* ignore */
+      }
     });
     child.unref();
   } catch {
-    try { fs.unlinkSync(lockPath); } catch { /* ignore */ }
+    try {
+      fs.unlinkSync(lockPath);
+    } catch {
+      /* ignore */
+    }
   }
 }
 
 try {
   const input = readInput();
-  if (input.hook_event_name === 'PostToolUse') handlePostToolUse(input);
+  if (input.hook_event_name === "PostToolUse") handlePostToolUse(input);
 } catch (err) {
   if (process.env.ADAM_HOOK_DEBUG) {
-    console.error('adam hook error:', (err.message || '').slice(0, 200));
+    console.error("adam hook error:", (err.message || "").slice(0, 200));
   }
 }

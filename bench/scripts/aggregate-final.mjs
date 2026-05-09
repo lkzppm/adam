@@ -1,28 +1,30 @@
 #!/usr/bin/env node
-// Aggregate final benchmark — Orientation + Coding (cost) + Coding (quality).
-// Reads:
-//   - bench/results/T1*.json          orientation runs (paired baseline + with-adam)
-//   - bench/edits-final/T2*-*.json    additive edits (paired)
-//   - bench/edits-final/T3*-*.json    graph-favoring edits (paired)
+// Hono benchmark aggregator — 30 tasks across 3 families (Orientation /
+// Additive coding / Multi-coding). Reads paired baseline + with-adam JSON
+// outputs from bench/results-hono/ and emits a markdown report.
 //
-// Quality numbers are emitted by bench/scripts/quality.sh (read its REPORT
-// from quality.md if present); this aggregator stays cost-only.
-import { readFileSync } from 'node:fs'
+// Quality (tsc pass/fail per coding task) is also folded in here.
+
+import { readFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(here, '..', '..')
 const TASKS = JSON.parse(readFileSync(join(here, 'tasks-final.json'), 'utf8'))
-const ADDITIVE = TASKS.filter((t) => t.family === 'edit').map((t) => t.id)
-const GRAPH = TASKS.filter((t) => t.family === 'graph-edit').map((t) => t.id)
-const ORIENT = ['T1', 'T1b', 'T1c', 'T1d', 'T1e', 'T1f', 'T1g', 'T1h', 'T1i', 'T1j']
+const RESULTS = join(ROOT, 'bench', 'results-hono')
 
-const RESULTS = join(ROOT, 'bench', 'results')
-const FINAL = join(ROOT, 'bench', 'edits-final')
+const FAMILIES = ['orient', 'additive', 'multi']
+const LABELS = { orient: 'Orientation', additive: 'Additive coding', multi: 'Multi-coding (refactor)' }
+const LEGENDS = {
+  orient: 'Asking the model to explain or locate code',
+  additive: 'Adding a single utility helper to one file',
+  multi: 'Cross-file refactor (rename / signature change)',
+}
 
-function readRun(dir, id, cond) {
-  const p = join(dir, `${id}-${cond}.json`)
+function readRun(id, cond) {
+  const p = join(RESULTS, `${id}-${cond}.json`)
+  if (!existsSync(p)) return null
   let data
   try {
     data = JSON.parse(readFileSync(p, 'utf8'))
@@ -41,14 +43,23 @@ function readRun(dir, id, cond) {
   }
 }
 
+function readTsc(id, cond) {
+  const p = join(RESULTS, `${id}-${cond}.tsc.txt`)
+  if (!existsSync(p)) return null
+  const txt = readFileSync(p, 'utf8')
+  const errors = (txt.match(/error TS\d+/g) || []).length
+  return { pass: errors === 0, errors }
+}
+
 const fmt = (n) => Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 })
-const dollars = (n) => `$${Number(n).toFixed(4)}`
+const dollars = (n) => `$${Number(n ?? 0).toFixed(4)}`
 const fmtPct = (d) => {
   if (!isFinite(d)) return ''
   const s = d > 0 ? '+' : ''
   return `${s}${(d * 100).toFixed(1)}%`
 }
 const delta = (b, w) => (!b || !w ? '' : fmtPct((w - b) / b))
+
 const sums = (rows) =>
   rows.reduce(
     (a, r) => ({
@@ -60,69 +71,69 @@ const sums = (rows) =>
     { tokens: 0, cost: 0, turns: 0, n: 0 },
   )
 
-function familyBlock(name, ids, dir) {
+function familyBlock(family) {
+  const ids = TASKS.filter((t) => t.family === family).map((t) => t.id)
   const rows = ids.map((id) => ({
     id,
-    b: readRun(dir, id, 'baseline'),
-    w: readRun(dir, id, 'with-adam'),
+    topic: TASKS.find((t) => t.id === id)?.topic ?? '',
+    b: readRun(id, 'baseline'),
+    w: readRun(id, 'with-adam'),
+    bTsc: readTsc(id, 'baseline'),
+    wTsc: readTsc(id, 'with-adam'),
   }))
-  const sb = sums(rows.map((r) => r.b))
-  const sw = sums(rows.map((r) => r.w))
-  return { name, rows, sb, sw }
+  return { family, rows, sb: sums(rows.map((r) => r.b)), sw: sums(rows.map((r) => r.w)) }
 }
 
-const orient = familyBlock('Orientation', ORIENT, RESULTS)
-const additive = familyBlock('Additive edits', ADDITIVE, FINAL)
-const graph = familyBlock('Graph-favoring edits', GRAPH, FINAL)
+const blocks = FAMILIES.map(familyBlock)
 
-console.log('# Final benchmark — Orientation / Coding (cost) / Coding (quality)')
+console.log('# Hono benchmark — Orientation / Additive coding / Multi-coding (refactor)')
+console.log()
+console.log('All paired runs: same prompt to baseline (no spec, no graph) vs adam (CLAUDE.md + spec/ + gitnexus MCP).')
 console.log()
 
-// ── Orientation ──
-console.log('## Orientation — "Asking about the codebase" (n=10)')
-console.log()
-console.log('| Task | Baseline cost | Adam cost | Δ cost |')
-console.log('|---|---:|---:|---:|')
-for (const r of orient.rows) {
-  console.log(`| ${r.id} | ${dollars(r.b?.cost)} | ${dollars(r.w?.cost)} | ${delta(r.b?.cost, r.w?.cost)} |`)
+for (const block of blocks) {
+  const { family, rows, sb, sw } = block
+  console.log(`## ${LABELS[family]} (n=${rows.length})`)
+  console.log()
+  console.log(`*${LEGENDS[family]}*`)
+  console.log()
+  if (family === 'orient') {
+    console.log('| Task | Topic | Baseline cost | Adam cost | Δ cost |')
+    console.log('|---|---|---:|---:|---:|')
+    for (const r of rows) {
+      console.log(`| ${r.id} | ${r.topic} | ${dollars(r.b?.cost)} | ${dollars(r.w?.cost)} | ${delta(r.b?.cost, r.w?.cost)} |`)
+    }
+  } else {
+    console.log('| Task | Topic | Baseline turns / cost / tsc | Adam turns / cost / tsc | Δ cost |')
+    console.log('|---|---|---:|---:|---:|')
+    for (const r of rows) {
+      const bTsc = r.bTsc ? (r.bTsc.pass ? '✓' : `✗(${r.bTsc.errors})`) : '–'
+      const wTsc = r.wTsc ? (r.wTsc.pass ? '✓' : `✗(${r.wTsc.errors})`) : '–'
+      console.log(
+        `| ${r.id} | ${r.topic} | ${r.b?.turns ?? '?'} / ${dollars(r.b?.cost)} / ${bTsc} | ${r.w?.turns ?? '?'} / ${dollars(r.w?.cost)} / ${wTsc} | ${delta(r.b?.cost, r.w?.cost)} |`,
+      )
+    }
+  }
+  console.log()
+  console.log(
+    `**${LABELS[family]} aggregate:** ${dollars(sb.cost)} → ${dollars(sw.cost)} (${delta(sb.cost, sw.cost)} cost, ${delta(sb.tokens, sw.tokens)} tokens, ${sw.turns - sb.turns} turns).`,
+  )
+  if (family !== 'orient') {
+    const bPass = rows.filter((r) => r.bTsc?.pass).length
+    const wPass = rows.filter((r) => r.wTsc?.pass).length
+    console.log(`Quality: baseline tsc-pass ${bPass}/${rows.length}, adam tsc-pass ${wPass}/${rows.length}.`)
+  }
+  console.log()
 }
-console.log()
-console.log(`**Aggregate:** ${dollars(orient.sb.cost)} → ${dollars(orient.sw.cost)} (${delta(orient.sb.cost, orient.sw.cost)} cost, ${delta(orient.sb.tokens, orient.sw.tokens)} tokens, ${orient.sw.turns - orient.sb.turns} turns).`)
-console.log()
 
-// ── Coding cost ──
-console.log('## Coding — token cost')
-console.log()
-console.log('### Additive edits (T2..T2j) — n=10')
-console.log()
-console.log('| Task | Baseline turns / cost | Adam turns / cost | Δ cost |')
-console.log('|---|---:|---:|---:|')
-for (const r of additive.rows) {
-  console.log(`| ${r.id} | ${r.b?.turns ?? '?'} / ${dollars(r.b?.cost)} | ${r.w?.turns ?? '?'} / ${dollars(r.w?.cost)} | ${delta(r.b?.cost, r.w?.cost)} |`)
-}
-console.log()
-console.log(`**Additive aggregate:** ${dollars(additive.sb.cost)} → ${dollars(additive.sw.cost)} (${delta(additive.sb.cost, additive.sw.cost)} cost, ${delta(additive.sb.tokens, additive.sw.tokens)} tokens, ${additive.sw.turns - additive.sb.turns} turns).`)
-console.log()
-console.log('### Graph-favoring edits (T3, T3b) — n=2')
-console.log()
-console.log('| Task | Baseline turns / cost | Adam turns / cost | Δ cost |')
-console.log('|---|---:|---:|---:|')
-for (const r of graph.rows) {
-  console.log(`| ${r.id} | ${r.b?.turns ?? '?'} / ${dollars(r.b?.cost)} | ${r.w?.turns ?? '?'} / ${dollars(r.w?.cost)} | ${delta(r.b?.cost, r.w?.cost)} |`)
-}
-console.log()
-console.log(`**Graph aggregate:** ${dollars(graph.sb.cost)} → ${dollars(graph.sw.cost)} (${delta(graph.sb.cost, graph.sw.cost)} cost).`)
-console.log()
+const tb = blocks.reduce((a, b) => ({ tokens: a.tokens + b.sb.tokens, cost: a.cost + b.sb.cost, turns: a.turns + b.sb.turns }), { tokens: 0, cost: 0, turns: 0 })
+const tw = blocks.reduce((a, b) => ({ tokens: a.tokens + b.sw.tokens, cost: a.cost + b.sw.cost, turns: a.turns + b.sw.turns }), { tokens: 0, cost: 0, turns: 0 })
+const totalN = blocks.reduce((a, b) => a + b.sw.n, 0)
 
-// ── Total ──
-const tb = { cost: orient.sb.cost + additive.sb.cost + graph.sb.cost, tokens: orient.sb.tokens + additive.sb.tokens + graph.sb.tokens, turns: orient.sb.turns + additive.sb.turns + graph.sb.turns }
-const tw = { cost: orient.sw.cost + additive.sw.cost + graph.sw.cost, tokens: orient.sw.tokens + additive.sw.tokens + graph.sw.tokens, turns: orient.sw.turns + additive.sw.turns + graph.sw.turns }
-console.log('## Total (all 22 tasks)')
+console.log(`## Total (${totalN} tasks)`)
 console.log()
 console.log('| | Tokens | Cost | Turns |')
 console.log('|---|---:|---:|---:|')
 console.log(`| baseline | ${fmt(tb.tokens)} | ${dollars(tb.cost)} | ${tb.turns} |`)
 console.log(`| **adam** | **${fmt(tw.tokens)}** | **${dollars(tw.cost)}** | **${tw.turns}** |`)
 console.log(`| **Δ** | **${delta(tb.tokens, tw.tokens)}** | **${delta(tb.cost, tw.cost)}** | **${tw.turns - tb.turns}** |`)
-console.log()
-console.log('Coding output quality is reported separately by `bench/scripts/quality.sh` (compile + runtime invocation). See `quality.md`.')

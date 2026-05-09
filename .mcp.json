@@ -1,18 +1,12 @@
 {
   "mcpServers": {
     "spec-lint": {
-      "command": "node",
-      "args": ["--import", "tsx", "${CLAUDE_PLUGIN_ROOT}/mcps/spec-lint/server.ts"],
-      "env": {
-        "NODE_PATH": "${CLAUDE_PLUGIN_DATA}/node_modules"
-      }
+      "command": "${CLAUDE_PLUGIN_ROOT}/node_modules/.bin/tsx",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcps/spec-lint/server.ts"]
     },
     "token-count": {
-      "command": "node",
-      "args": ["--import", "tsx", "${CLAUDE_PLUGIN_ROOT}/mcps/token-count/server.ts"],
-      "env": {
-        "NODE_PATH": "${CLAUDE_PLUGIN_DATA}/node_modules"
-      }
+      "command": "${CLAUDE_PLUGIN_ROOT}/node_modules/.bin/tsx",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcps/token-count/server.ts"]
     }
   }
 }

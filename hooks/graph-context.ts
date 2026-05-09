@@ -14,15 +14,26 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync, spawn } from "node:child_process";
 
-function readInput() {
+interface HookInput {
+  hook_event_name?: string;
+  tool_name?: string;
+  cwd?: string;
+}
+
+interface GraphRoot {
+  gitNexusDir: string;
+  repoRoot: string;
+}
+
+function readInput(): HookInput {
   try {
-    return JSON.parse(fs.readFileSync(0, "utf-8"));
+    return JSON.parse(fs.readFileSync(0, "utf-8")) as HookInput;
   } catch {
     return {};
   }
 }
 
-function isGlobalRegistryDir(candidate) {
+function isGlobalRegistryDir(candidate: string): boolean {
   if (fs.existsSync(path.join(candidate, "meta.json"))) return false;
   return (
     fs.existsSync(path.join(candidate, "registry.json")) ||
@@ -30,7 +41,7 @@ function isGlobalRegistryDir(candidate) {
   );
 }
 
-function findGitNexusRoot(startDir) {
+function findGitNexusRoot(startDir: string): GraphRoot | null {
   let dir = startDir;
   for (let i = 0; i < 5; i++) {
     const candidate = path.join(dir, ".gitnexus");
@@ -44,7 +55,7 @@ function findGitNexusRoot(startDir) {
   return null;
 }
 
-function gitnexusOnPath() {
+function gitnexusOnPath(): boolean {
   const isWin = process.platform === "win32";
   const which = spawnSync(isWin ? "where" : "which", ["gitnexus"], {
     encoding: "utf-8",
@@ -54,11 +65,11 @@ function gitnexusOnPath() {
   return which.status === 0;
 }
 
-function handlePostToolUse(input) {
-  const tool = input.tool_name || "";
+function handlePostToolUse(input: HookInput): void {
+  const tool = input.tool_name ?? "";
   if (!/^(Edit|Write|MultiEdit)$/.test(tool)) return;
 
-  const cwd = input.cwd || process.cwd();
+  const cwd = input.cwd ?? process.cwd();
   if (!path.isAbsolute(cwd)) return;
   const found = findGitNexusRoot(cwd);
   if (!found) return;
@@ -118,7 +129,8 @@ try {
   const input = readInput();
   if (input.hook_event_name === "PostToolUse") handlePostToolUse(input);
 } catch (err) {
-  if (process.env.ADAM_HOOK_DEBUG) {
-    console.error("adam hook error:", (err.message || "").slice(0, 200));
+  if (process.env["ADAM_HOOK_DEBUG"]) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("adam hook error:", message.slice(0, 200));
   }
 }

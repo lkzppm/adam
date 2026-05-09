@@ -1,0 +1,21 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/health/index.ts ./src/middleware/health/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/health/index.ts	1969-12-31 21:00:00
++++ ./src/middleware/health/index.ts	2026-05-08 22:22:23
+@@ -0,0 +1,17 @@
++import type { MiddlewareHandler } from '../../types'
++
++type Options = {
++  path?: string
++  status?: 'ok' | 'degraded'
++}
++
++export const health = (options?: Options): MiddlewareHandler => {
++  const path = options?.path ?? '/healthz'
++  const status = options?.status ?? 'ok'
++  return async (c, next) => {
++    if (c.req.path === path) {
++      return c.json({ status }, 200)
++    }
++    await next()
++  }
++}

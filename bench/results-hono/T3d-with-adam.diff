@@ -1,0 +1,77 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/helper/cookie/index.ts ./src/helper/cookie/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/helper/cookie/index.ts	2026-05-08 15:08:09
++++ ./src/helper/cookie/index.ts	2026-05-08 23:20:13
+@@ -24,7 +24,7 @@
+   ): Promise<string | undefined | false>
+ }
+ 
+-export const getCookie: GetCookie = (c, key?, prefix?: CookiePrefixOptions) => {
++export const readCookie: GetCookie = (c, key?, prefix?: CookiePrefixOptions) => {
+   const cookie = c.req.raw.headers.get('Cookie')
+   if (typeof key === 'string') {
+     if (!cookie) {
+@@ -96,7 +96,7 @@
+   return cookie
+ }
+ 
+-export const setCookie = (c: Context, name: string, value: string, opt?: CookieOptions): void => {
++export const writeCookie = (c: Context, name: string, value: string, opt?: CookieOptions): void => {
+   const cookie = generateCookie(name, value, opt)
+   c.header('Set-Cookie', cookie, { append: true })
+ }
+@@ -139,7 +139,7 @@
+ }
+ 
+ export const deleteCookie = (c: Context, name: string, opt?: CookieOptions): string | undefined => {
+-  const deletedCookie = getCookie(c, name, opt?.prefix)
+-  setCookie(c, name, '', { ...opt, maxAge: 0 })
++  const deletedCookie = readCookie(c, name, opt?.prefix)
++  writeCookie(c, name, '', { ...opt, maxAge: 0 })
+   return deletedCookie
+ }
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/jwk/jwk.ts ./src/middleware/jwk/jwk.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/jwk/jwk.ts	2026-05-08 15:08:09
++++ ./src/middleware/jwk/jwk.ts	2026-05-08 23:20:03
+@@ -4,7 +4,7 @@
+  */
+ 
+ import type { Context } from '../../context'
+-import { getCookie, getSignedCookie } from '../../helper/cookie'
++import { readCookie as getCookie, getSignedCookie } from '../../helper/cookie'
+ import { HTTPException } from '../../http-exception'
+ import type { MiddlewareHandler } from '../../types'
+ import type { CookiePrefixOptions } from '../../utils/cookie'
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/jwt/jwt.ts ./src/middleware/jwt/jwt.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/jwt/jwt.ts	2026-05-08 15:08:09
++++ ./src/middleware/jwt/jwt.ts	2026-05-08 23:20:04
+@@ -4,7 +4,7 @@
+  */
+ 
+ import type { Context } from '../../context'
+-import { getCookie, getSignedCookie } from '../../helper/cookie'
++import { readCookie as getCookie, getSignedCookie } from '../../helper/cookie'
+ import { HTTPException } from '../../http-exception'
+ import type { MiddlewareHandler } from '../../types'
+ import type { CookiePrefixOptions } from '../../utils/cookie'
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/language/language.ts ./src/middleware/language/language.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/language/language.ts	2026-05-08 15:08:09
++++ ./src/middleware/language/language.ts	2026-05-08 23:20:05
+@@ -3,7 +3,7 @@
+  * Language module for Hono.
+  */
+ import type { Context } from '../../context'
+-import { setCookie, getCookie } from '../../helper/cookie'
++import { writeCookie as setCookie, readCookie as getCookie } from '../../helper/cookie'
+ import type { MiddlewareHandler } from '../../types'
+ import { parseAccept } from '../../utils/accept'
+ 
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/validator/validator.ts ./src/validator/validator.ts
+--- /Users/lkz/Desktop/Code/hono/src/validator/validator.ts	2026-05-08 15:08:09
++++ ./src/validator/validator.ts	2026-05-08 23:20:06
+@@ -1,5 +1,5 @@
+ import type { Context } from '../context'
+-import { getCookie } from '../helper/cookie'
++import { readCookie as getCookie } from '../helper/cookie'
+ import { HTTPException } from '../http-exception'
+ import type { Env, MiddlewareHandler, TypedResponse, ValidationTargets, FormValue } from '../types'
+ import type { BodyData } from '../utils/body'

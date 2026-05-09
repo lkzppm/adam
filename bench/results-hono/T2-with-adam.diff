@@ -1,0 +1,21 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/body-cap/index.ts ./src/middleware/body-cap/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/body-cap/index.ts	1969-12-31 21:00:00
++++ ./src/middleware/body-cap/index.ts	2026-05-08 22:18:49
+@@ -0,0 +1,17 @@
++import { HTTPException } from '../../http-exception'
++import type { MiddlewareHandler } from '../../types'
++
++type BodyCapOptions = {
++  maxBytes: number
++}
++
++export const bodyCap = (options: BodyCapOptions): MiddlewareHandler => {
++  const { maxBytes } = options
++  return async (c, next) => {
++    const contentLength = c.req.raw.headers.get('content-length')
++    if (contentLength !== null && parseInt(contentLength, 10) > maxBytes) {
++      throw new HTTPException(413, { message: 'Body too large' })
++    }
++    await next()
++  }
++}

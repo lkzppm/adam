@@ -5,8 +5,9 @@ description: One-time scaffolding of a spec-driven Claude Code workflow in this 
 
 # setup
 
-Two-phase bootstrap:
+Three-phase bootstrap:
 
+0. **Index** — verify GitNexus is installed and the repo is indexed. Wire `.mcp.json` so Claude can query the graph.
 1. **Scaffold** — write `spec/`, `spec/INDEX.md`, and `CLAUDE.md`.
 2. **Suggest** — interactively offer hooks / skills / sub-agents tailored to the detected stack, using `AskUserQuestion`. Each accepted item is created on the spot.
 
@@ -18,15 +19,44 @@ Two-phase bootstrap:
 
 If `spec/` already contains content and `--force` was not passed, **stop and tell the user** to run `/adam:spec-update` instead.
 
-## Phase 1 — scaffold
+## Phase 0 — knowledge graph
+
+GitNexus is a hard prerequisite — adam's anchors depend on a current `.gitnexus/` index. **Do not interpret these steps yourself; call the script.** The script is idempotent, deterministic, and parseable.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/setup-graph.sh "$PWD"
+```
+
+The script:
+
+1. Verifies `gitnexus` is on PATH (exits non-zero with a clear `npm install -g gitnexus` hint if missing — relay that to the user verbatim and stop).
+2. Indexes the repo if `.gitnexus/` is absent (`gitnexus analyze` for git repos, `--skip-git` otherwise).
+3. Strips the `<!-- gitnexus:start -->...<!-- gitnexus:end -->` block that `gitnexus analyze` auto-writes into `CLAUDE.md` on first run — its prescriptive "MUST run impact analysis…" rules measurably bias the model toward extra exploration turns; adam's own CLAUDE.md says what we want already.
+4. Merges `gitnexus` into `.mcp.json` under `mcpServers` (creates the file or splices into an existing one — never overwrites unrelated entries).
+
+The script emits a single JSON object on stdout, e.g. `{"status":"ok","indexed":"true","stripped":"false","mcp":"created","stats":{"nodes":735,"edges":940,"clusters":18,"processes":16},...}`. Surface those stats in the Phase 0 section of the final report. If `status != "ok"`, surface the script's stderr and stop — Phase 1 depends on a working graph.
+
+## Phase 1 — workflow rules
+
+Copy the plugin's templated workflow rules into the project. **Do not interpret these steps yourself; call the script.** It is deterministic and identical across every install — that's what propagates the bench-validated routing behavior.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/write-spec-rules.sh "$PWD"
+```
+
+The script copies `templates/spec-rules/*.md` from the plugin into `<project>/spec/rules/`. Currently three files: `refactor.md` (cross-file refactor recipe), `additive.md` (adding new functionality), `orient.md` (read-only Q&A). It emits `{"status":"ok","dest":"...","files":3}` on stdout. Surface that in the report.
+
+These rules are **not project-specific** and must NOT be edited per project. They encode adam's workflow contract; project-specific patterns go under `spec/project/` and `spec/concepts/` instead.
+
+## Phase 2 — scaffold
 
 Delegate to the `adam` sub-agent:
 
-> Run first-time setup in the current working directory. Detect the stack (manifest files, top-level dirs, infrastructure files), decide the spec list, write specs grounded in actual code, generate CLAUDE.md as a brief + spec index with token counts (use the token-count MCP), and write spec/INDEX.md. Do **NOT** write to `.claude/` in this phase — that's handled by the parent skill via interactive prompts.
+> Run first-time setup in the current working directory. `spec/rules/` has already been populated by the parent skill — do NOT touch it. Detect the stack (manifest files, top-level dirs, infrastructure files), then write `spec/project/<area>.md` files for the conventions you can describe substantively (frontend, backend, stack), and `spec/concepts/<subsystem>.md` deep walkthroughs for the non-trivial subsystems worth their own page. Write `spec/overview.md` and `spec/INDEX.md`. Generate CLAUDE.md as a brief + spec index with token counts (use the token-count MCP). Do **NOT** write to `.claude/` in this phase — that's handled by the parent skill via interactive prompts.
 
 Surface the agent's report to the user before proceeding.
 
-## Phase 2 — interactive suggestion
+## Phase 3 — interactive suggestion
 
 After the agent returns, build a list of stack-appropriate suggestions. Use the same detection signals the agent reported:
 
@@ -65,7 +95,7 @@ AskUserQuestion({
 - Every option needs a 1-line `description` that says what file gets created and what it does.
 - Never include an option for something the project doesn't need — empty is a valid suggestion list. If you have nothing useful to suggest, skip Phase 2 entirely and tell the user.
 
-## Phase 3 — write the accepted items
+## Phase 4 — write the accepted items
 
 For each item the user selected:
 
@@ -77,13 +107,21 @@ Keep each file substantive — no placeholder content. If you can't write someth
 
 ## Output format
 
-Two reports separated:
+Three reports separated:
 
 ```
-── Phase 1: spec scaffolding ──
-<adam agent's standard report — Created/Updated/Deleted/Lint/Notes>
+── Phase 0: knowledge graph ──
+GitNexus: <indexed | newly indexed | already current>
+Stats: <nodes / edges / clusters / processes>
+.mcp.json: <created | merged | already wired>
 
-── Phase 2: project automations ──
+── Phase 1: workflow rules ──
+spec/rules/: <N files written from plugin templates>
+
+── Phase 2: spec scaffolding ──
+<adam agent's standard report — Created/Updated/Deleted/Lint/Notes — broken down by spec/project/ and spec/concepts/>
+
+── Phase 3: project automations ──
 Created:
   - .claude/agents/<name>.md  — <one-line reason>
   - .claude/hooks/<name>.sh   — <one-line reason>
@@ -102,7 +140,8 @@ Then close with:
 
 ## Guardrails
 
-- Phase 2 must run AFTER phase 1 succeeds. If the agent fails to scaffold, do not proceed to suggestions.
+- Phase 3 must run AFTER phase 2 succeeds. If the agent fails to scaffold, do not proceed to suggestions.
+- Phase 1 (rules) must run BEFORE phase 2 (scaffold) — the meta-agent references `spec/rules/` from the CLAUDE.md it generates.
 - Never create empty .claude/ files — only write what the user explicitly accepted.
 - Merge `.claude/settings.json`, never overwrite. The actual command body for any hook lives in `.claude/hooks/<name>.sh`; `settings.json` only references it.
 - If the user has zero automations to suggest, say so and do not call AskUserQuestion at all (don't fake a question).

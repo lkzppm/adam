@@ -1,0 +1,334 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/helper/css/index.ts ./src/helper/css/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/helper/css/index.ts	2026-05-08 15:08:09
++++ ./src/helper/css/index.ts	2026-05-08 23:56:39
+@@ -3,7 +3,7 @@
+  * css Helper for Hono.
+  */
+ 
+-import { raw } from '../../helper/html'
++import { rawHtml } from '../../helper/html'
+ import { DOM_RENDERER } from '../../jsx/constants'
+ import { createCssJsxDomObjects } from '../../jsx/dom/css'
+ import type { HtmlEscapedCallback, HtmlEscapedString } from '../../utils/html'
+@@ -142,7 +142,7 @@
+         return
+       }
+ 
+-      return Promise.resolve(raw('', [appendStyle]))
++      return Promise.resolve(rawHtml('', [appendStyle]))
+     }
+ 
+     const className = new String(cssClassName[CLASS_NAME]) as CssClassName
+@@ -180,7 +180,7 @@
+   }) as ViewTransitionType
+ 
+   const Style: StyleType = ({ children, nonce } = {}) =>
+-    raw(
++    rawHtml(
+       `<style id="${id}"${nonce ? ` nonce="${nonce}"` : ''}>${
+         children ? (children as unknown as CssClassName)[STYLE_STRING] : ''
+       }</style>`,
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/helper/html/index.ts ./src/helper/html/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/helper/html/index.ts	2026-05-08 15:08:09
++++ ./src/helper/html/index.ts	2026-05-08 23:56:36
+@@ -3,10 +3,10 @@
+  * html Helper for Hono.
+  */
+ 
+-import { escapeToBuffer, raw, resolveCallbackSync, stringBufferToString } from '../../utils/html'
++import { escapeToBuffer, rawHtml, resolveCallbackSync, stringBufferToString } from '../../utils/html'
+ import type { HtmlEscaped, HtmlEscapedString, StringBufferWithCallbacks } from '../../utils/html'
+ 
+-export { raw }
++export { rawHtml }
+ 
+ export const html = (
+   strings: TemplateStringsArray,
+@@ -51,7 +51,7 @@
+ 
+   return buffer.length === 1
+     ? 'callbacks' in buffer
+-      ? raw(resolveCallbackSync(raw(buffer[0], buffer.callbacks)))
+-      : raw(buffer[0])
++      ? rawHtml(resolveCallbackSync(rawHtml(buffer[0], buffer.callbacks)))
++      : rawHtml(buffer[0])
+     : stringBufferToString(buffer, buffer.callbacks)
+ }
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/jsx/base.ts ./src/jsx/base.ts
+--- /Users/lkz/Desktop/Code/hono/src/jsx/base.ts	2026-05-08 15:08:09
++++ ./src/jsx/base.ts	2026-05-08 23:56:41
+@@ -1,4 +1,4 @@
+-import { raw } from '../helper/html'
++import { rawHtml } from '../helper/html'
+ import { escapeToBuffer, resolveCallbackSync, stringBufferToString } from '../utils/html'
+ import type { HtmlEscaped, HtmlEscapedString, StringBufferWithCallbacks } from '../utils/html'
+ import { DOM_RENDERER, DOM_MEMO } from './constants'
+@@ -172,7 +172,7 @@
+     }
+     return buffer.length === 1
+       ? 'callbacks' in buffer
+-        ? resolveCallbackSync(raw(buffer[0], buffer.callbacks)).toString()
++        ? resolveCallbackSync(rawHtml(buffer[0], buffer.callbacks)).toString()
+         : buffer[0]
+       : stringBufferToString(buffer, buffer.callbacks)
+   }
+@@ -223,7 +223,7 @@
+           throw new Error('Can only set one of `children` or `props.dangerouslySetInnerHTML`.')
+         }
+ 
+-        children = [raw(v.__html)]
++        children = [rawHtml(v.__html)]
+       } else if (v instanceof Promise) {
+         buffer[0] += ` ${key}="`
+         buffer.unshift('"', v)
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/jsx/components.ts ./src/jsx/components.ts
+--- /Users/lkz/Desktop/Code/hono/src/jsx/components.ts	2026-05-08 15:08:09
++++ ./src/jsx/components.ts	2026-05-08 23:57:42
+@@ -1,4 +1,4 @@
+-import { raw } from '../helper/html'
++import { rawHtml } from '../helper/html'
+ import type { HtmlEscapedCallback, HtmlEscapedString } from '../utils/html'
+ import { HtmlEscapedCallbackPhase, resolveCallback } from '../utils/html'
+ import { jsx, Fragment } from './base'
+@@ -34,7 +34,7 @@
+   } else {
+     const str = c.toString()
+     if (!(str instanceof Promise)) {
+-      return raw(str)
++      return rawHtml(str)
+     } else {
+       return str as Promise<HtmlEscapedString>
+     }
+@@ -57,7 +57,7 @@
+   }>
+ > = async ({ children, fallback, fallbackRender, onError }) => {
+   if (!children) {
+-    return raw('')
++    return rawHtml('')
+   }
+ 
+   if (!Array.isArray(children)) {
+@@ -74,8 +74,8 @@
+     } else {
+       fallbackStr = await awaitedFallback?.toString()
+       if (typeof fallbackStr === 'string') {
+-        // should not apply `raw` if fallbackStr is undefined, null, or boolean
+-        fallbackStr = raw(fallbackStr)
++        // should not apply `rawHtml` if fallbackStr is undefined, null, or boolean
++        fallbackStr = rawHtml(fallbackStr)
+       }
+     }
+   }
+@@ -130,7 +130,7 @@
+ 
+     let error: unknown
+     const promiseAll = Promise.all(resArray).catch((e) => (error = e))
+-    return raw(`<template id="E:${index}"></template><!--E:${index}-->`, [
++    return rawHtml(`<template id="E:${index}"></template><!--E:${index}-->`, [
+       ({ phase, buffer, context }) => {
+         if (phase === HtmlEscapedCallbackPhase.BeforeStream) {
+           return
+@@ -195,10 +195,10 @@
+                           buffer[0] = buffer[0].replace(replaceRe, (_all, _pre, content) => content)
+                         }
+                         buffer[0] += content
+-                        return raw('', (content as HtmlEscapedString).callbacks)
++                        return rawHtml('', (content as HtmlEscapedString).callbacks)
+                       }
+ 
+-                      return raw(
++                      return rawHtml(
+                         content +
+                           (resolvedCount !== callbacks.length
+                             ? ''
+@@ -219,7 +219,7 @@
+             )
+ 
+             // eslint-disable-next-line @typescript-eslint/no-explicit-any
+-            return raw(html, promises as any)
++            return rawHtml(html, promises as any)
+           })
+           .catch((error) => catchCallback({ error, buffer }))
+       },
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/jsx/context.ts ./src/jsx/context.ts
+--- /Users/lkz/Desktop/Code/hono/src/jsx/context.ts	2026-05-08 15:08:09
++++ ./src/jsx/context.ts	2026-05-08 23:56:44
+@@ -1,4 +1,4 @@
+-import { raw } from '../helper/html'
++import { rawHtml } from '../helper/html'
+ import type { HtmlEscapedString } from '../utils/html'
+ import { JSXFragmentNode } from './base'
+ import { DOM_RENDERER } from './constants'
+@@ -32,10 +32,10 @@
+     if (string instanceof Promise) {
+       return string
+         .finally(() => values.pop())
+-        .then((resString) => raw(resString, (resString as HtmlEscapedString).callbacks))
++        .then((resString) => rawHtml(resString, (resString as HtmlEscapedString).callbacks))
+     } else {
+       values.pop()
+-      return raw(string)
++      return rawHtml(string)
+     }
+   }) as Context<T>
+   context.values = values
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/jsx/intrinsic-element/components.ts ./src/jsx/intrinsic-element/components.ts
+--- /Users/lkz/Desktop/Code/hono/src/jsx/intrinsic-element/components.ts	2026-05-08 15:08:09
++++ ./src/jsx/intrinsic-element/components.ts	2026-05-08 23:56:57
+@@ -1,4 +1,4 @@
+-import { raw } from '../../helper/html'
++import { rawHtml } from '../../helper/html'
+ import type { HtmlEscapedCallback, HtmlEscapedString } from '../../utils/html'
+ import { JSXNode, getNameSpaceContext } from '../base'
+ import type { Child, Props } from '../base'
+@@ -91,7 +91,7 @@
+   }
+ 
+ const returnWithoutSpecialBehavior = (tag: string, children: Child, props: Props) =>
+-  raw(new JSXNode(tag, props, toArray(children ?? [])).toString())
++  rawHtml(new JSXNode(tag, props, toArray(children ?? [])).toString())
+ 
+ const documentMetadataTag = (tag: string, children: Child, props: Props, sort: boolean) => {
+   if ('itemProp' in props) {
+@@ -108,13 +108,13 @@
+ 
+   if (string instanceof Promise) {
+     return string.then((resString) =>
+-      raw(string, [
++      rawHtml(string, [
+         ...((resString as HtmlEscapedString).callbacks || []),
+         insertIntoHead(tag, resString, restProps, precedence),
+       ])
+     )
+   } else {
+-    return raw(string, [insertIntoHead(tag, string, restProps, precedence)])
++    return rawHtml(string, [insertIntoHead(tag, string, restProps, precedence)])
+   }
+ }
+ 
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/jsx/jsx-runtime.ts ./src/jsx/jsx-runtime.ts
+--- /Users/lkz/Desktop/Code/hono/src/jsx/jsx-runtime.ts	2026-05-08 15:08:09
++++ ./src/jsx/jsx-runtime.ts	2026-05-08 23:57:10
+@@ -6,7 +6,7 @@
+ export { jsxDEV as jsx, Fragment } from './jsx-dev-runtime'
+ export { jsxDEV as jsxs } from './jsx-dev-runtime'
+ export type { JSX } from './jsx-dev-runtime'
+-import { html, raw } from '../helper/html'
++import { html, rawHtml } from '../helper/html'
+ import type { HtmlEscapedString, StringBuffer, HtmlEscaped } from '../utils/html'
+ import { escapeToBuffer, stringBufferToString } from '../utils/html'
+ import { isValidAttributeName, styleObjectForEach } from './utils'
+@@ -18,7 +18,7 @@
+   v: string | Promise<string> | Record<string, string | number | null | undefined | boolean>
+ ): HtmlEscapedString | Promise<HtmlEscapedString> => {
+   if (!isValidAttributeName(key)) {
+-    return raw('')
++    return rawHtml('')
+   }
+   const buffer: StringBuffer = [`${key}="`] as StringBuffer
+   if (key === 'style' && typeof v === 'object') {
+@@ -35,7 +35,7 @@
+     escapeToBuffer(v, buffer)
+     buffer[0] += '"'
+   } else if (v === null || v === undefined) {
+-    return raw('')
++    return rawHtml('')
+   } else if (typeof v === 'number' || (v as unknown as HtmlEscaped).isEscaped) {
+     buffer[0] += `${v}"`
+   } else if (v instanceof Promise) {
+@@ -45,7 +45,7 @@
+     buffer[0] += '"'
+   }
+ 
+-  return buffer.length === 1 ? raw(buffer[0]) : stringBufferToString(buffer, undefined)
++  return buffer.length === 1 ? rawHtml(buffer[0]) : stringBufferToString(buffer, undefined)
+ }
+ 
+ export const jsxEscape = (value: string) => value
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/jsx/streaming.ts ./src/jsx/streaming.ts
+--- /Users/lkz/Desktop/Code/hono/src/jsx/streaming.ts	2026-05-08 15:08:09
++++ ./src/jsx/streaming.ts	2026-05-08 23:57:01
+@@ -3,7 +3,7 @@
+  * This module enables JSX to supports streaming Response.
+  */
+ 
+-import { raw } from '../helper/html'
++import { rawHtml } from '../helper/html'
+ import { HtmlEscapedCallbackPhase, resolveCallback } from '../utils/html'
+ import type { HtmlEscapedString } from '../utils/html'
+ import { JSXNode } from './base'
+@@ -83,7 +83,7 @@
+   if (resArray.some((res) => (res as {}) instanceof Promise)) {
+     const index = suspenseCounter++
+     const fallbackStr = await fallback.toString()
+-    return raw(`<template id="H:${index}"></template>${fallbackStr}<!--/$-->`, [
++    return rawHtml(`<template id="H:${index}"></template>${fallbackStr}<!--/$-->`, [
+       ...(fallbackStr.callbacks || []),
+       ({ phase, buffer, context }) => {
+         if (phase === HtmlEscapedCallbackPhase.BeforeStream) {
+@@ -123,12 +123,12 @@
+             html = await resolveCallback(html, HtmlEscapedCallbackPhase.BeforeStream, true, context)
+           }
+ 
+-          return raw(html, callbacks)
++          return rawHtml(html, callbacks)
+         })
+       },
+     ])
+   } else {
+-    return raw(resArray.join(''))
++    return rawHtml(resArray.join(''))
+   }
+ }
+ ;(Suspense as HasRenderToDom)[DOM_RENDERER] = SuspenseDomRenderer
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/jsx-renderer/index.ts ./src/middleware/jsx-renderer/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/jsx-renderer/index.ts	2026-05-08 15:08:09
++++ ./src/middleware/jsx-renderer/index.ts	2026-05-08 23:57:05
+@@ -5,7 +5,7 @@
+ 
+ /* eslint-disable @typescript-eslint/no-explicit-any */
+ import type { Context, PropsForRenderer } from '../../context'
+-import { html, raw } from '../../helper/html'
++import { html, rawHtml } from '../../helper/html'
+ import { Fragment, createContext, jsx, useContext } from '../../jsx'
+ import type { FC, Context as JSXContext, JSXNode, PropsWithChildren } from '../../jsx'
+ import { renderToReadableStream } from '../../jsx/streaming'
+@@ -57,7 +57,7 @@
+         )
+       : children
+ 
+-    const body = html`${raw(docType)}${jsx(
++    const body = html`${rawHtml(docType)}${jsx(
+       RequestContext.Provider,
+       { value: c },
+       currentLayout as any
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/utils/html.ts ./src/utils/html.ts
+--- /Users/lkz/Desktop/Code/hono/src/utils/html.ts	2026-05-08 15:08:09
++++ ./src/utils/html.ts	2026-05-08 23:56:32
+@@ -37,7 +37,7 @@
+ export type StringBuffer = (string | Promise<string>)[]
+ export type StringBufferWithCallbacks = StringBuffer & { callbacks: HtmlEscapedCallback[] }
+ 
+-export const raw = (value: unknown, callbacks?: HtmlEscapedCallback[]): HtmlEscapedString => {
++export const rawHtml = (value: unknown, callbacks?: HtmlEscapedCallback[]): HtmlEscapedString => {
+   const escapedString = new String(value) as HtmlEscapedString
+   escapedString.isEscaped = true
+   escapedString.callbacks = callbacks
+@@ -84,7 +84,7 @@
+     }
+   }
+ 
+-  return raw(str, callbacks)
++  return rawHtml(str, callbacks)
+ }
+ 
+ export const escapeToBuffer = (str: string, buffer: StringBuffer): void => {
+@@ -175,7 +175,7 @@
+   )
+ 
+   if (preserveCallbacks) {
+-    return raw(await resStr, callbacks)
++    return rawHtml(await resStr, callbacks)
+   } else {
+     return resStr
+   }

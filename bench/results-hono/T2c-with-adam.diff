@@ -1,0 +1,35 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/language-tag/index.ts ./src/middleware/language-tag/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/language-tag/index.ts	1969-12-31 21:00:00
++++ ./src/middleware/language-tag/index.ts	2026-05-08 22:20:06
+@@ -0,0 +1,31 @@
++import type { MiddlewareHandler } from '../../types'
++
++type Options = {
++  allowed: string[]
++  default: string
++}
++
++export const languageTag = (options: Options): MiddlewareHandler => {
++  return async (c, next) => {
++    const header = c.req.header('Accept-Language') ?? ''
++    let best = options.default
++
++    if (header) {
++      let bestQ = -1
++
++      for (const part of header.split(',')) {
++        const [tagRaw, qRaw] = part.trim().split(';')
++        const tag = tagRaw.trim()
++        const q = qRaw ? parseFloat(qRaw.trim().replace(/^q=/i, '')) : 1
++
++        if (!isNaN(q) && q > bestQ && options.allowed.includes(tag)) {
++          bestQ = q
++          best = tag
++        }
++      }
++    }
++
++    c.set('language', best)
++    await next()
++  }
++}

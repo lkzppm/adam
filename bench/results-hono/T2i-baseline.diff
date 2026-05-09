@@ -1,0 +1,24 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/context.ts ./src/context.ts
+--- /Users/lkz/Desktop/Code/hono/src/context.ts	2026-05-08 15:08:09
++++ ./src/context.ts	2026-05-08 22:25:40
+@@ -762,6 +762,20 @@
+   }
+ 
+   /**
++   * `.notModified()` can return the Not Modified Response (304).
++   *
++   * @see {@link https://hono.dev/docs/api/context#notmodified}
++   *
++   * @example
++   * ```ts
++   * app.get('/cached', (c) => {
++   *   return c.notModified()
++   * })
++   * ```
++   */
++  notModified = (): Response => this.newResponse(null, 304)
++
++  /**
+    * `.notFound()` can return the Not Found Response.
+    *
+    * @see {@link https://hono.dev/docs/api/context#notfound}

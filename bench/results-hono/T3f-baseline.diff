@@ -1,0 +1,466 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/jsx/base.ts ./src/jsx/base.ts
+--- /Users/lkz/Desktop/Code/hono/src/jsx/base.ts	2026-05-08 15:08:09
++++ ./src/jsx/base.ts	2026-05-08 23:31:15
+@@ -106,7 +106,7 @@
+       escapeToBuffer(child, buffer)
+     } else if (typeof child === 'boolean' || child === null || child === undefined) {
+       continue
+-    } else if (child instanceof JSXNode) {
++    } else if (child instanceof JSXElement) {
+       child.toStringToBuffer(buffer)
+     } else if (
+       typeof child === 'number' ||
+@@ -127,12 +127,12 @@
+   | string
+   | Promise<string>
+   | number
+-  | JSXNode
++  | JSXElement
+   | null
+   | undefined
+   | boolean
+   | Child[]
+-export class JSXNode implements HtmlEscaped {
++export class JSXElement implements HtmlEscaped {
+   tag: string | Function
+   props: Props
+   key?: string
+@@ -252,7 +252,7 @@
+   }
+ }
+ 
+-class JSXFunctionNode extends JSXNode {
++class JSXFunctionNode extends JSXElement {
+   override toStringToBuffer(buffer: StringBufferWithCallbacks): void {
+     const { children } = this
+ 
+@@ -275,14 +275,14 @@
+         buffer.unshift(
+           '',
+           res.then((childRes) => {
+-            if (childRes instanceof JSXNode) {
++            if (childRes instanceof JSXElement) {
+               childRes.localContexts = currentContexts
+             }
+             return childRes
+           })
+         )
+       }
+-    } else if (res instanceof JSXNode) {
++    } else if (res instanceof JSXElement) {
+       res.toStringToBuffer(buffer)
+     } else if (typeof res === 'number' || (res as HtmlEscaped).isEscaped) {
+       buffer[0] += res
+@@ -296,7 +296,7 @@
+   }
+ }
+ 
+-export class JSXFragmentNode extends JSXNode {
++export class JSXFragmentNode extends JSXElement {
+   override toStringToBuffer(buffer: StringBufferWithCallbacks): void {
+     childrenToStringToBuffer(this.children, buffer)
+   }
+@@ -306,7 +306,7 @@
+   tag: string | Function,
+   props: Props | null,
+   ...children: (string | number | HtmlEscapedString)[]
+-): JSXNode => {
++): JSXElement => {
+   props ??= {}
+   if (children.length) {
+     props.children = children.length === 1 ? children[0] : children
+@@ -325,7 +325,7 @@
+   tag: string | Function,
+   props: Props,
+   children: (string | number | HtmlEscapedString)[]
+-): JSXNode => {
++): JSXElement => {
+   if (!initDomRenderer) {
+     for (const k in domRenderers) {
+       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+@@ -345,7 +345,7 @@
+     )
+   } else if (tag === 'svg' || tag === 'head') {
+     nameSpaceContext ||= createContext('')
+-    return new JSXNode(tag, props, [
++    return new JSXElement(tag, props, [
+       new JSXFunctionNode(
+         nameSpaceContext,
+         {
+@@ -355,7 +355,7 @@
+       ),
+     ])
+   } else {
+-    return new JSXNode(tag, props, children)
++    return new JSXElement(tag, props, children)
+   }
+ }
+ 
+@@ -427,11 +427,11 @@
+   ) as never
+ }
+ 
+-export const isValidElement = (element: unknown): element is JSXNode => {
++export const isValidElement = (element: unknown): element is JSXElement => {
+   return !!(element && typeof element === 'object' && 'tag' in element && 'props' in element)
+ }
+ 
+-export const cloneElement = <T extends JSXNode | JSX.Element>(
++export const cloneElement = <T extends JSXElement | JSX.Element>(
+   element: T,
+   props: Partial<Props>,
+   ...children: Child[]
+@@ -440,12 +440,12 @@
+   if (children.length > 0) {
+     childrenToClone = children
+   } else {
+-    const c = (element as JSXNode).props.children
++    const c = (element as JSXElement).props.children
+     childrenToClone = Array.isArray(c) ? c : [c]
+   }
+   return jsx(
+-    (element as JSXNode).tag,
+-    { ...(element as JSXNode).props, ...props },
++    (element as JSXElement).tag,
++    { ...(element as JSXElement).props, ...props },
+     ...childrenToClone
+   ) as T
+ }
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/jsx/dom/index.ts ./src/jsx/dom/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/jsx/dom/index.ts	2026-05-08 15:08:09
++++ ./src/jsx/dom/index.ts	2026-05-08 23:30:26
+@@ -4,7 +4,7 @@
+  */
+ 
+ import { isValidElement, reactAPICompatVersion, shallowEqual } from '../base'
+-import type { Child, DOMAttributes, JSX, JSXNode, Props, FC, MemorableFC } from '../base'
++import type { Child, DOMAttributes, JSX, JSXElement, Props, FC, MemorableFC } from '../base'
+ import { Children } from '../children'
+ import { DOM_MEMO } from '../constants'
+ import { useContext } from '../context'
+@@ -39,10 +39,10 @@
+ export { render } from './render'
+ 
+ const createElement = (
+-  tag: string | ((props: Props) => JSXNode),
++  tag: string | ((props: Props) => JSXElement),
+   props: Props | null,
+   ...children: Child[]
+-): JSXNode => {
++): JSXElement => {
+   const jsxProps: Props = props ? { ...props } : {}
+   if (children.length) {
+     jsxProps.children = children.length === 1 ? children[0] : children
+@@ -57,19 +57,19 @@
+   return jsx(tag, jsxProps, key) as any
+ }
+ 
+-const cloneElement = <T extends JSXNode | JSX.Element>(
++const cloneElement = <T extends JSXElement | JSX.Element>(
+   element: T,
+   props: Props,
+   ...children: Child[]
+ ): T => {
+   return jsx(
+-    (element as JSXNode).tag,
++    (element as JSXElement).tag,
+     {
+-      ...(element as JSXNode).props,
++      ...(element as JSXElement).props,
+       ...props,
+-      children: children.length ? children : (element as JSXNode).props.children,
++      children: children.length ? children : (element as JSXElement).props.children,
+     },
+-    (element as JSXNode).key
++    (element as JSXElement).key
+   ) as T
+ }
+ 
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/jsx/dom/intrinsic-element/components.ts ./src/jsx/dom/intrinsic-element/components.ts
+--- /Users/lkz/Desktop/Code/hono/src/jsx/dom/intrinsic-element/components.ts	2026-05-08 15:08:09
++++ ./src/jsx/dom/intrinsic-element/components.ts	2026-05-08 23:30:52
+@@ -9,7 +9,7 @@
+   shouldDeDupeByKey,
+ } from '../../intrinsic-element/common'
+ import type { IntrinsicElements } from '../../intrinsic-elements'
+-import type { FC, JSXNode, PropsWithChildren, RefObject } from '../../types'
++import type { FC, JSXElement, PropsWithChildren, RefObject } from '../../types'
+ import { FormContext, registerAction } from '../hooks'
+ import type { PreserveNodeType } from '../render'
+ import { createPortal, getNameSpaceContext } from '../render'
+@@ -241,7 +241,7 @@
+       ref,
+     },
+     ref,
+-  } as unknown as JSXNode & { e?: HTMLElement; p?: PreserveNodeType }
++  } as unknown as JSXElement & { e?: HTMLElement; p?: PreserveNodeType }
+ 
+   jsxNode.p = preserveNodeType // preserve for unmounting
+   if (element) {
+@@ -264,7 +264,7 @@
+       type: 'title',
+       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       ref: (props as any).ref,
+-    } as unknown as JSXNode
++    } as unknown as JSXElement
+   }
+   return documentMetadataTag('title', props, undefined, false, false)
+ }
+@@ -276,7 +276,7 @@
+       props,
+       type: 'script',
+       ref: props.ref,
+-    } as unknown as JSXNode
++    } as unknown as JSXElement
+   }
+   return documentMetadataTag('script', props, 1, false, true)
+ }
+@@ -288,7 +288,7 @@
+       props,
+       type: 'style',
+       ref: props.ref,
+-    } as unknown as JSXNode
++    } as unknown as JSXElement
+   }
+   props['data-href'] = props.href
+   delete props.href
+@@ -306,7 +306,7 @@
+       props,
+       type: 'link',
+       ref: props.ref,
+-    } as unknown as JSXNode
++    } as unknown as JSXElement
+   }
+   return documentMetadataTag('link', props, 1, isStylesheetLinkWithPrecedence(props), true)
+ }
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/jsx/dom/jsx-dev-runtime.ts ./src/jsx/dom/jsx-dev-runtime.ts
+--- /Users/lkz/Desktop/Code/hono/src/jsx/dom/jsx-dev-runtime.ts	2026-05-08 15:08:09
++++ ./src/jsx/dom/jsx-dev-runtime.ts	2026-05-08 23:30:31
+@@ -3,11 +3,11 @@
+  * This module provides the `hono/jsx/dom` dev runtime.
+  */
+ 
+-import type { JSXNode, Props } from '../base'
++import type { JSXElement, Props } from '../base'
+ export type { JSX } from '../base'
+ import * as intrinsicElementTags from './intrinsic-element/components'
+ 
+-export const jsxDEV = (tag: string | Function, props: Props, key?: string): JSXNode => {
++export const jsxDEV = (tag: string | Function, props: Props, key?: string): JSXElement => {
+   if (typeof tag === 'string' && intrinsicElementTags[tag as keyof typeof intrinsicElementTags]) {
+     tag = intrinsicElementTags[tag as keyof typeof intrinsicElementTags]
+   }
+@@ -17,7 +17,7 @@
+     props,
+     key,
+     ref: props.ref,
+-  } as JSXNode
++  } as JSXElement
+ }
+ 
+-export const Fragment = (props: Record<string, unknown>): JSXNode => jsxDEV('', props, undefined)
++export const Fragment = (props: Record<string, unknown>): JSXElement => jsxDEV('', props, undefined)
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/jsx/dom/render.ts ./src/jsx/dom/render.ts
+--- /Users/lkz/Desktop/Code/hono/src/jsx/dom/render.ts	2026-05-08 15:08:09
++++ ./src/jsx/dom/render.ts	2026-05-08 23:30:44
+@@ -1,4 +1,4 @@
+-import type { Child, FC, JSXNode, Props, MemorableFC } from '../base'
++import type { Child, FC, JSXElement, Props, MemorableFC } from '../base'
+ import { toArray } from '../children'
+ import {
+   DOM_ERROR_HANDLER,
+@@ -62,7 +62,7 @@
+       ]
+     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     | [number, any[][]]
+-} & JSXNode
++} & JSXElement
+ type NodeString = {
+   t: string // text content
+   d: boolean // is dirty
+@@ -73,7 +73,7 @@
+   vC: undefined
+   nN: undefined
+   p?: true
+-  // from JSXNode
++  // from JSXElement
+   key: undefined
+   tag: undefined
+ }
+@@ -505,7 +505,7 @@
+     children ||=
+       typeof node.tag == 'function' ? invokeTag(context, node) : toArray(node.props.children)
+     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+-    if ((children[0] as JSXNode)?.tag === '' && (children[0] as any)[DOM_ERROR_HANDLER]) {
++    if ((children[0] as JSXElement)?.tag === '' && (children[0] as any)[DOM_ERROR_HANDLER]) {
+       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       foundErrorHandler = (children[0] as any)[DOM_ERROR_HANDLER] as ErrorHandler
+       context[5]!.push([context, foundErrorHandler, node])
+@@ -682,18 +682,18 @@
+         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       } as any
+     }
+-    if (typeof (node as JSXNode).tag === 'function') {
++    if (typeof (node as JSXElement).tag === 'function') {
+       ;(node as NodeObject)[DOM_STASH] = [0, []]
+     } else {
+-      const ns = nameSpaceMap[(node as JSXNode).tag as string]
++      const ns = nameSpaceMap[(node as JSXElement).tag as string]
+       if (ns) {
+         nameSpaceContext ||= createContext('')
+-        ;(node as JSXNode).props.children = [
++        ;(node as JSXElement).props.children = [
+           {
+             tag: nameSpaceContext,
+             props: {
+               value: ((node as NodeObject).n = `http://www.w3.org/${ns}`),
+-              children: (node as JSXNode).props.children,
++              children: (node as JSXElement).props.children,
+             },
+           },
+         ]
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/jsx/intrinsic-element/components.ts ./src/jsx/intrinsic-element/components.ts
+--- /Users/lkz/Desktop/Code/hono/src/jsx/intrinsic-element/components.ts	2026-05-08 15:08:09
++++ ./src/jsx/intrinsic-element/components.ts	2026-05-08 23:30:12
+@@ -1,6 +1,6 @@
+ import { raw } from '../../helper/html'
+ import type { HtmlEscapedCallback, HtmlEscapedString } from '../../utils/html'
+-import { JSXNode, getNameSpaceContext } from '../base'
++import { JSXElement, getNameSpaceContext } from '../base'
+ import type { Child, Props } from '../base'
+ import { toArray } from '../children'
+ import { PERMALINK } from '../constants'
+@@ -91,7 +91,7 @@
+   }
+ 
+ const returnWithoutSpecialBehavior = (tag: string, children: Child, props: Props) =>
+-  raw(new JSXNode(tag, props, toArray(children ?? [])).toString())
++  raw(new JSXElement(tag, props, toArray(children ?? [])).toString())
+ 
+ const documentMetadataTag = (tag: string, children: Child, props: Props, sort: boolean) => {
+   if ('itemProp' in props) {
+@@ -104,7 +104,7 @@
+     restProps[dataPrecedenceAttr] = precedence
+   }
+ 
+-  const string = new JSXNode(tag, restProps, toArray(children || [])).toString()
++  const string = new JSXElement(tag, restProps, toArray(children || [])).toString()
+ 
+   if (string instanceof Promise) {
+     return string.then((resString) =>
+@@ -123,7 +123,7 @@
+   if (nameSpaceContext) {
+     const context = useContext(nameSpaceContext)
+     if (context === 'svg' || context === 'head') {
+-      return new JSXNode(
++      return new JSXElement(
+         'title',
+         props,
+         toArray(children ?? []) as Child[]
+@@ -178,7 +178,7 @@
+ 
+ const newJSXNode = (tag: string, { children, ...props }: PropsWithChildren<unknown>) =>
+   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+-  new JSXNode(tag, props, toArray(children ?? []) as Child[]) as any
++  new JSXElement(tag, props, toArray(children ?? []) as Child[]) as any
+ export const form: FC<
+   PropsWithChildren<{
+     action?: Function | string
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/jsx/jsx-dev-runtime.ts ./src/jsx/jsx-dev-runtime.ts
+--- /Users/lkz/Desktop/Code/hono/src/jsx/jsx-dev-runtime.ts	2026-05-08 15:08:09
++++ ./src/jsx/jsx-dev-runtime.ts	2026-05-08 23:30:07
+@@ -5,7 +5,7 @@
+ 
+ import type { HtmlEscapedString } from '../utils/html'
+ import { jsxFn } from './base'
+-import type { JSXNode } from './base'
++import type { JSXElement } from './base'
+ export { Fragment } from './base'
+ export type { JSX } from './base'
+ 
+@@ -13,8 +13,8 @@
+   tag: string | Function,
+   props: Record<string, unknown>,
+   key?: string
+-): JSXNode {
+-  let node: JSXNode
++): JSXElement {
++  let node: JSXElement
+   if (!props || !('children' in props)) {
+     node = jsxFn(tag, props, [])
+   } else {
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/jsx/streaming.ts ./src/jsx/streaming.ts
+--- /Users/lkz/Desktop/Code/hono/src/jsx/streaming.ts	2026-05-08 15:08:09
++++ ./src/jsx/streaming.ts	2026-05-08 23:30:02
+@@ -6,7 +6,7 @@
+ import { raw } from '../helper/html'
+ import { HtmlEscapedCallbackPhase, resolveCallback } from '../utils/html'
+ import type { HtmlEscapedString } from '../utils/html'
+-import { JSXNode } from './base'
++import { JSXElement } from './base'
+ import { childrenToString } from './components'
+ import { DOM_RENDERER, DOM_STASH } from './constants'
+ import { createContext, useContext } from './context'
+@@ -140,14 +140,14 @@
+  * The API might be changed.
+  */
+ export const renderToReadableStream = (
+-  content: HtmlEscapedString | JSXNode | Promise<HtmlEscapedString>,
++  content: HtmlEscapedString | JSXElement | Promise<HtmlEscapedString>,
+   onError: (e: unknown) => string | void = console.trace
+ ): ReadableStream<Uint8Array> => {
+   let cancelled = false
+   const reader = new ReadableStream<Uint8Array>({
+     async start(controller) {
+       try {
+-        if (content instanceof JSXNode) {
++        if (content instanceof JSXElement) {
+           // aJSXNode.toString() returns a string or Promise<string> and string is already escaped
+           content = content.toString() as HtmlEscapedString | Promise<HtmlEscapedString>
+         }
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/jsx/types.ts ./src/jsx/types.ts
+--- /Users/lkz/Desktop/Code/hono/src/jsx/types.ts	2026-05-08 15:08:09
++++ ./src/jsx/types.ts	2026-05-08 23:29:54
+@@ -1,10 +1,10 @@
+ /**
+  * All types exported from "hono/jsx" are in this file.
+  */
+-import type { Child, JSXNode } from './base'
++import type { Child, JSXElement } from './base'
+ import type { JSX } from './intrinsic-elements'
+ 
+-export type { Child, JSXNode, FC } from './base'
++export type { Child, JSXElement, FC } from './base'
+ export type { RefObject } from './hooks'
+ export type { Context } from './context'
+ 
+@@ -16,7 +16,7 @@
+  */
+ 
+ // eslint-disable-next-line @typescript-eslint/no-explicit-any
+-type ReactElement<P = any, T = string | Function> = JSXNode & {
++type ReactElement<P = any, T = string | Function> = JSXElement & {
+   type: T
+   props: P
+   key: string | null
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/jsx-renderer/index.ts ./src/middleware/jsx-renderer/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/jsx-renderer/index.ts	2026-05-08 15:08:09
++++ ./src/middleware/jsx-renderer/index.ts	2026-05-08 23:31:00
+@@ -7,7 +7,7 @@
+ import type { Context, PropsForRenderer } from '../../context'
+ import { html, raw } from '../../helper/html'
+ import { Fragment, createContext, jsx, useContext } from '../../jsx'
+-import type { FC, Context as JSXContext, JSXNode, PropsWithChildren } from '../../jsx'
++import type { FC, Context as JSXContext, JSXElement, PropsWithChildren } from '../../jsx'
+ import { renderToReadableStream } from '../../jsx/streaming'
+ import type { Env, Input, MiddlewareHandler } from '../../types'
+ import type { HtmlEscapedString } from '../../utils/html'
+@@ -37,7 +37,7 @@
+     component?: Component,
+     options?: RendererOptions | ((c: Context) => RendererOptions)
+   ) =>
+-  (children: JSXNode, props: PropsForRenderer) => {
++  (children: JSXElement, props: PropsForRenderer) => {
+     options = typeof options === 'function' ? options(c) : options
+     const docType =
+       typeof options?.docType === 'string'

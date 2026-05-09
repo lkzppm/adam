@@ -1,70 +1,46 @@
----
-name: overview
-description: Onboarding spec — what the portfolio is, deploy target, repo layout.
-tags: [overview, onboarding]
-updated: 2026-05-04
----
+# Hono — overview
 
-# Overview
+Hono is a multi-runtime web framework. Public surface is the `Hono` class (an alias for `HonoBase`) with chainable `.get/.post/.put/.use(...)` and a per-request `Context` (`c.req.*`, `c.json/text/html/redirect`, `c.var`).
 
-Lucas Pacheco's personal AI-engineer portfolio. Single Next.js 14 App Router page that scrolls through Hero → About → Projects → Skills → Experience → Contact, plus a 3D/text "playground" and a terminal-style AI chat that answers questions about Lucas using RAG + tool calling.
+## Lifecycle of a request
 
-## Repo layout
+1. Runtime adapter (cloudflare-workers, aws-lambda, bun, …) calls `app.fetch(req)`.
+2. `HonoBase.fetch` (in `src/hono-base.ts`) finds the matched routes via the active `Router` (default = SmartRouter, which picks RegExpRouter or TrieRouter on first hit).
+3. Matched middleware/handlers are composed by `compose()` (`src/compose.ts`) into a dispatch chain. The chain executes in order, each calling `await next()` to defer to the next handler.
+4. Each handler receives a `Context` (`src/context.ts`) wrapping the request (`HonoRequest` in `src/request.ts`) and helpers for building responses.
+5. Errors throw `HTTPException` (`src/http-exception.ts`) which `HonoBase` converts to a Response.
 
-```
-portifolio/
-├── app/                          ← Next.js App Router
-│   ├── layout.tsx                  # JetBrains Mono font, metadata, OG
-│   ├── page.tsx                    # composes layout/* components
-│   ├── globals.css                 # Tailwind entry
-│   ├── opengraph-image.tsx         # generated OG image
-│   └── api/
-│       ├── chat/route.ts           # RAG + tool-calling chat (edge runtime)
-│       └── send-email/route.ts     # contact form handler
-├── components/
-│   ├── layout/                   ← page sections
-│   │   ├── Hero.tsx
-│   │   ├── About.tsx
-│   │   ├── Projects.tsx
-│   │   ├── Skills.tsx
-│   │   ├── Experience.tsx
-│   │   ├── Contact.tsx
-│   │   └── Navigation.tsx
-│   ├── playground/               ← 3D / WebGL demo blocks
-│   │   ├── Playground3D.tsx
-│   │   ├── PlaygroundLiquids.tsx
-│   │   └── PlaygroundText.tsx
-│   ├── terminal/                 ← the AI chat UI (CLI-themed)
-│   └── ui/                       ← reusable primitives
-├── data/
-│   └── portfolio.ts              # SINGLE SOURCE OF TRUTH for content
-├── hooks/
-│   └── useScrollProgress.ts
-├── lib/
-│   ├── rag.ts                    # TF-IDF retriever over portfolio chunks
-│   ├── mcp.ts                    # OpenAI-style function-calling tool schemas
-│   ├── ratelimit.ts              # Upstash + in-memory two-tier limiter
-│   └── utils.ts
-├── types/
-├── public/
-├── package.json
-├── next.config.js
-├── tailwind.config.ts
-└── tsconfig.json
-```
+## Where things live
 
-## Stack
+| Concern | Path |
+|---|---|
+| App class (public) | `src/hono.ts` (re-exports `src/hono-base.ts`'s `Hono`) |
+| Routing dispatch | `src/router.ts` + `src/router/<variant>/router.ts` |
+| Middleware chain | `src/compose.ts` |
+| Request | `src/request.ts` (HonoRequest) |
+| Response building | `src/context.ts` (Context) |
+| Errors | `src/http-exception.ts` (HTTPException) |
+| Built-in middleware | `src/middleware/<name>/index.ts` |
+| Composable helpers | `src/helper/<name>/index.ts` |
+| Pure utilities | `src/utils/<file>.ts` |
+| Per-runtime entry | `src/adapter/<runtime>/handler.ts` (or `index.ts`) |
+| JSX runtime | `src/jsx/` (server + DOM under `src/jsx/dom/`) |
 
-- **Next.js 14** (App Router) + **React 18** + **TypeScript 5**
-- **Tailwind CSS** + JetBrains Mono
-- **Groq** (`llama-3.3-70b-versatile`) for chat — chosen over 8b-instant because 70B is more reliable for function-calling
-- **Upstash Redis** (`@upstash/ratelimit` + `@upstash/redis`) for rate-limit persistence; in-memory fallback when env vars are absent
-- **Vercel Analytics** + **SpeedInsights** in `app/layout.tsx`
+## Routers
 
-## Deploy
+| Variant | When used | File |
+|---|---|---|
+| `RegExpRouter` | Fastest, regex tree | `src/router/reg-exp-router/router.ts` |
+| `TrieRouter` | Trie-based, predictable | `src/router/trie-router/router.ts` |
+| `LinearRouter` | Small, no regex (good for serverless cold start) | `src/router/linear-router/router.ts` |
+| `PatternRouter` | URLPattern-based | `src/router/pattern-router/router.ts` |
+| `SmartRouter` | Default — picks one of the above on first match | `src/router/smart-router/router.ts` |
 
-Vercel — `lppm.vercel.app` per the `metadataBase`. `npm run dev` for local; `npm run build` to verify; deploys on push to GitHub.
+## Public exports
 
-## State of play
+`src/index.ts` re-exports `Hono` (from `hono.ts`) and `HTTPException`. Subpaths `hono/cookie`, `hono/jwt`, `hono/cors`, etc. are package.json `exports` mapped to `src/helper/<name>` or `src/middleware/<name>`.
 
-Repo is a working portfolio. The chat API is wired and uses Groq for inference + Upstash for rate-limit. No tests. `data/portfolio.ts` is hand-edited when content changes.
+## Tests / typecheck
+
+- Tests next to source: `src/**/*.test.ts`
+- Bench typecheck gate: `npx tsc --noEmit --project tsconfig.build.json` (excludes `*.test.ts`)

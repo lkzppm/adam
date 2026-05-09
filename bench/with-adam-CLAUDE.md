@@ -1,40 +1,42 @@
-# Lucas Pacheco — Portfolio
+# Hono — fast, lightweight web framework
 
-Personal AI-engineer portfolio site. Single-page Next.js 14 App Router app deployed on Vercel. Includes a RAG-powered chat (`/api/chat`) that answers visitor questions about Lucas's projects/experience using a TF-IDF retriever and Groq's `llama-3.3-70b-versatile` for generation, plus tool-calling for fit-scoring against pasted JDs.
+Multi-runtime web framework (Cloudflare Workers, Bun, Deno, AWS Lambda, Vercel, Node). Pure TypeScript, zero deps. Public surface: `Hono` app + per-request `Context` (`c.req`, `c.json/text/html`, `c.var`). Source in `src/`, tests in `src/**/*.test.ts`. tsc gate: `npx tsc --noEmit --project tsconfig.build.json` (excludes tests).
 
-## Stack
+## When to use the spec + graph
 
-- **Next.js 14** App Router (`app/`) on **Vercel**
-- **TypeScript 5**, **Tailwind CSS** (config in `tailwind.config.ts`)
-- **Groq** for LLM inference (chat API), **Upstash Redis** for rate limiting (with in-memory fallback)
-- **Three.js** / WebGL playground components
-- **JetBrains Mono** as the body font
+The spec and the GitNexus graph cost ~3K cached tokens. Only spend that when the savings exceed it.
 
-## Runtime shape
+**Use them for:**
+- Cross-file refactors (rename, signature change, type widen) that touch >2 files.
+- New code that follows a non-obvious convention spread across multiple files (new built-in middleware, new helper module, new `Context` method).
+- "Where does X live?" / "How does X reach Y?" questions.
 
-```
-app/page.tsx
-   │
-   ├─ components/layout/{Hero, About, Projects, Skills, Experience, Contact, Navigation}
-   ├─ components/playground/{Playground3D, PlaygroundLiquids, PlaygroundText}
-   └─ components/terminal/* (the AI chat UI)
-            │
-            └─ POST /api/chat (route.ts, edge runtime)
-                    │
-                    ├─ lib/ratelimit.ts (Upstash sliding-window or in-memory)
-                    ├─ lib/rag.ts       (TF-IDF over data/portfolio.ts → Top-K chunks)
-                    ├─ lib/mcp.ts       (TOOL_SCHEMAS: compute_fit_score, …)
-                    └─ Groq llama-3.3-70b-versatile
-```
+**Skip them for:**
+- Single-file additive edits to an existing file (one new export to a util, a one-line fix).
+- Tasks completely scoped within one file you can already locate.
+- Reformatting / trivial typo fixes.
 
-`data/portfolio.ts` is the **single source of truth** for content (personal info, projects, skills, experience, education, certifications). Components and the RAG corpus both read from it.
+If skipping: don't read `spec/`, don't call `gitnexus_*`. Just `Read` the file you need and `Edit`.
 
 ## Spec index
 
-| Spec | Read when… | Tokens |
-|------|-----------|--------|
-| [spec/overview.md](./spec/overview.md) | Onboarding — what the site does, deploy target, repo layout | 749 |
-| [spec/frontend.md](./spec/frontend.md) | Touching layout/playground/terminal components, fonts, styling conventions | 799 |
-| [spec/chat-api.md](./spec/chat-api.md) | Editing `/api/chat`, the RAG retriever, MCP-style tools, or the rate limiter | 1196 |
+| Spec | Read when… |
+|---|---|
+| [spec/overview.md](./spec/overview.md) | You need a map of where things live |
+| [spec/middleware.md](./spec/middleware.md) | Adding a built-in middleware, helper module, or `Context` method |
+| [spec/refactor.md](./spec/refactor.md) | Cross-file rename / type widening / signature change |
 
-Run `/adam:spec-update` after substantive code changes.
+## Editing rules (when spec/graph is in scope)
+
+- For **function or method renames**, locate via `gitnexus_context({name, repo: "hono"})` — the `incoming` list IS your edit list. **Trust it; do not re-grep.** Re-grepping a symbol the graph already resolved is the #1 source of cache pollution in refactors.
+- For **class / type / interface / exported const renames**, skip the graph and grep directly. Target the import statement, not the bare name: `grep -rn "import.*\\bX\\b.*from.*<path-fragment>" src -l`. Use `-l` (filenames only) — line-by-line grep on common names triggers tool-result spillover.
+- For **multi-symbol renames in one prompt**, issue all orientation calls in PARALLEL (one message, multiple `tool_use` blocks). Never loop the workflow per symbol.
+- Don't call `gitnexus_impact` for mechanical renames — its metadata bloats cache without changing the edit list. Save it for behavioral changes.
+- **Never read a tool-results spillover file.** If a tool says *"Output too large. Full output saved to: …"*, re-run the tool with narrower flags (add `-l`, narrow `--include`, narrow path). Reading the spillover permanently pollutes cache with noise.
+- For files >300 lines, read only the slice the graph returns ± 20 lines.
+
+## Response style
+
+- **Code requests** (implement, fix, refactor, add): reply with a 1–3 line briefing. No diff summaries, no restating the task.
+- **Explanations** (why / how / explain): reply normally.
+- Default to brief.

@@ -1,0 +1,182 @@
+[
+  {
+    "id": "T1",
+    "family": "orient",
+    "topic": "middleware-compose",
+    "prompt": "How does Hono compose middleware? Walk me through what happens between `app.use(...)` calls and a handler being invoked: where the chain is built, where it's dispatched, and the order of execution for `await next()`. Cite file:line."
+  },
+  {
+    "id": "T1b",
+    "family": "orient",
+    "topic": "router-add",
+    "prompt": "Where does Hono compile path patterns into matchers? Trace from `router.add(method, path, handler)` to wherever the regex/trie is actually built. Cite file:line for each step."
+  },
+  {
+    "id": "T1c",
+    "family": "orient",
+    "topic": "cors-preflight",
+    "prompt": "How does the built-in CORS middleware decide which response headers to set on a preflight (OPTIONS) request vs an actual request? Cite file:line and describe the branching."
+  },
+  {
+    "id": "T1d",
+    "family": "orient",
+    "topic": "lambda-adapter",
+    "prompt": "Walk me through how the AWS Lambda adapter converts a Lambda event into a Web Request and the Hono Response back into a Lambda result. Cite file:line for both directions."
+  },
+  {
+    "id": "T1e",
+    "family": "orient",
+    "topic": "router-variants",
+    "prompt": "Hono ships RegExpRouter, TrieRouter, LinearRouter, PatternRouter, and SmartRouter. What are the differences between them and when does each get used? Cite file:line for each implementation."
+  },
+  {
+    "id": "T1f",
+    "family": "orient",
+    "topic": "jwt-algorithms",
+    "prompt": "Where is JWT signing implemented in Hono and which algorithms are supported out of the box? Cite file:line for the algorithm dispatch."
+  },
+  {
+    "id": "T1g",
+    "family": "orient",
+    "topic": "context-renderers",
+    "prompt": "How do `c.json()`, `c.text()`, and `c.html()` differ in the headers they set and where are they each defined? Cite file:line and describe the content-type handling."
+  },
+  {
+    "id": "T1h",
+    "family": "orient",
+    "topic": "context-storage",
+    "prompt": "How does the context-storage middleware share `Context` across async boundaries? Where is `AsyncLocalStorage` (or its equivalent) set up and accessed? Cite file:line."
+  },
+  {
+    "id": "T1i",
+    "family": "orient",
+    "topic": "body-parser",
+    "prompt": "When a request comes in, how does Hono decide whether to parse the body as FormData, JSON, or text? Where is that dispatch and what content-types route to which parser? Cite file:line."
+  },
+  {
+    "id": "T1j",
+    "family": "orient",
+    "topic": "add-builtin-middleware",
+    "prompt": "If I wanted to add a new built-in middleware so consumers can `import { x } from 'hono/x'`, what's the convention? Where would the source live, where do exports get wired, and what files do I need to touch? Cite file:line for one existing middleware as the example."
+  },
+  {
+    "id": "T2",
+    "family": "additive",
+    "topic": "middleware-body-cap",
+    "prompt": "Add a new built-in middleware `bodyCap` to `src/middleware/body-cap/index.ts`. Signature: `bodyCap(options: { maxBytes: number }) => MiddlewareHandler`. Reads the request's `Content-Length` header; if present and exceeds `maxBytes`, throw `HTTPException(413, { message: 'Body too large' })` before calling `next()`. Otherwise call `next()`. Follow Hono's middleware factory convention. The project must still typecheck via `npx tsc --noEmit --project tsconfig.build.json`."
+  },
+  {
+    "id": "T2b",
+    "family": "additive",
+    "topic": "middleware-request-time",
+    "prompt": "Add a new built-in middleware `requestTime` to `src/middleware/request-time/index.ts`. Signature: `requestTime() => MiddlewareHandler`. Records `Date.now()` before calling `next()`, and after `next()` resolves, sets the response header `X-Response-Time-Ms` to the elapsed milliseconds (integer). Use the `MiddlewareHandler` type from `src/types.ts`. The project must typecheck via `tsconfig.build.json`."
+  },
+  {
+    "id": "T2c",
+    "family": "additive",
+    "topic": "middleware-language-tag",
+    "prompt": "Add a new built-in middleware `languageTag` to `src/middleware/language-tag/index.ts`. Signature: `languageTag(options: { allowed: string[]; default: string }) => MiddlewareHandler`. Parses `c.req.header('Accept-Language')`, picks the highest-q language tag from `options.allowed`, falls back to `options.default`, and sets it on the request via `c.set('language', tag)`. Then `await next()`. Use `MiddlewareHandler`. Project must typecheck."
+  },
+  {
+    "id": "T2d",
+    "family": "additive",
+    "topic": "middleware-if-none-match",
+    "prompt": "Add a new built-in middleware `ifNoneMatch` to `src/middleware/if-none-match/index.ts`. Signature: `ifNoneMatch() => MiddlewareHandler`. After `await next()`, if the response has an `ETag` header AND the request's `If-None-Match` header matches it (exact string match), replace the response with a 304 Not Modified and an empty body, preserving the `ETag` header. Use the `MiddlewareHandler` type. Project must typecheck."
+  },
+  {
+    "id": "T2e",
+    "family": "additive",
+    "topic": "middleware-health",
+    "prompt": "Add a new built-in middleware `health` to `src/middleware/health/index.ts`. Signature: `health(options?: { path?: string; status?: 'ok' | 'degraded' }) => MiddlewareHandler`. If `c.req.path === (options?.path ?? '/healthz')`, short-circuit by returning `c.json({ status: options?.status ?? 'ok' }, 200)` immediately (do not call `next()`). Otherwise call `next()`. Use `MiddlewareHandler`. Project must typecheck."
+  },
+  {
+    "id": "T2f",
+    "family": "additive",
+    "topic": "helper-request-info",
+    "prompt": "Add a new helper module `request-info` at `src/helper/request-info/index.ts`. Export a single function `getRequestInfo(c: Context) => { method: string; path: string; query: Record<string, string>; headers: Record<string, string> }`. `query` should be the parsed query string as flat key/value, `headers` should be all request headers lower-cased. Import `Context` from `../../context`. The project must typecheck via `tsconfig.build.json`."
+  },
+  {
+    "id": "T2g",
+    "family": "additive",
+    "topic": "helper-bearer",
+    "prompt": "Add a new helper module `bearer` at `src/helper/bearer/index.ts`. Export `getBearerToken(c: Context) => string | null`. Reads the `Authorization` header from `c.req` and returns the token portion if it starts with `Bearer ` (case-insensitive scheme), otherwise `null`. Import `Context` from `../../context`. Project must typecheck."
+  },
+  {
+    "id": "T2h",
+    "family": "additive",
+    "topic": "helper-clear-cookies",
+    "prompt": "Add a new helper module `clear-cookies` at `src/helper/clear-cookies/index.ts`. Export `clearAllCookies(c: Context) => void`. Reads every cookie from the request via `c.req.header('Cookie')`, parses cookie names, and for each one calls `setCookie(c, name, '', { maxAge: 0 })` using the existing `setCookie` from `src/helper/cookie`. Import `Context` from `../../context` and `setCookie` from `../cookie`. Project must typecheck."
+  },
+  {
+    "id": "T2i",
+    "family": "additive",
+    "topic": "context-not-modified",
+    "prompt": "Add a new method `notModified()` on the `Context` class in `src/context.ts`. Signature: `notModified(): Response`. Returns a `Response` with status 304 and an empty body, going through the existing `this.newResponse(...)` / `this.body(...)` path so headers merge correctly. Place it next to the existing `redirect` / `json` / `text` methods. Project must typecheck via `tsconfig.build.json`."
+  },
+  {
+    "id": "T2j",
+    "family": "additive",
+    "topic": "context-problem",
+    "prompt": "Add a new method `problem(detail: { type?: string; title: string; status: number; detail?: string })` on the `Context` class in `src/context.ts`. Signature: `problem(detail: { type?: string; title: string; status: number; detail?: string }): Response`. Returns an RFC 7807 Problem Details response: body is JSON of `detail`, content-type is `application/problem+json`, status is `detail.status`. Route through the existing `this.newResponse(...)` / `this.body(...)` infrastructure to preserve header merging. Place it near the existing `json` method. Project must typecheck."
+  },
+  {
+    "id": "T3",
+    "family": "multi",
+    "topic": "rename-html-helper",
+    "prompt": "Rename the exported tagged-template function `html` in `src/helper/html/index.ts` to `htmlTemplate`. Find every importer/user across `src/` (excluding `*.test.ts` files) and update every reference. Note: the bare name `html` is ambiguous (collides with `c.html()` method, the `html` directory name, and HTML-related type names) — only update references that import from `src/helper/html/index.ts`. Project must typecheck via `npx tsc --noEmit --project tsconfig.build.json`. Behavior unchanged."
+  },
+  {
+    "id": "T3b",
+    "family": "multi",
+    "topic": "rename-raw-html",
+    "prompt": "Rename the exported function `raw` in `src/utils/html.ts` to `rawHtml`. Find every importer/user across `src/` (excluding `*.test.ts` files) and update every reference. The bare name `raw` is ambiguous (request.raw, body.raw, etc.); only update references that actually import from `src/utils/html.ts` (or its re-exports). Project must typecheck via `tsconfig.build.json`. Behavior unchanged."
+  },
+  {
+    "id": "T3c",
+    "family": "multi",
+    "topic": "rename-httpexception",
+    "prompt": "Rename the exported class `HTTPException` in `src/http-exception.ts` to `HttpError`. Find every importer/user across `src/` (excluding `*.test.ts` files) and update every reference (imports, `new HTTPException(...)`, `instanceof` checks, type annotations). Project must typecheck via `tsconfig.build.json`. Field names and behavior unchanged."
+  },
+  {
+    "id": "T3d",
+    "family": "multi",
+    "topic": "rename-cookie-helpers",
+    "prompt": "Rename the exported helpers `getCookie` and `setCookie` in `src/helper/cookie/index.ts` to `readCookie` and `writeCookie` respectively. Find every importer/user across `src/` (excluding `*.test.ts` files) and update every reference. The bare names are ambiguous (cookie utils, web-platform Cookie API); only update references that actually import from `src/helper/cookie`. Project must typecheck via `tsconfig.build.json`. Behavior unchanged."
+  },
+  {
+    "id": "T3e",
+    "family": "multi",
+    "topic": "rename-jwt-sign-verify",
+    "prompt": "Rename the exported helpers `sign` and `verify` in `src/utils/jwt/jwt.ts` to `signJwt` and `verifyJwt` respectively. Find every importer/user across `src/` (excluding `*.test.ts` files) and update every reference. The bare names `sign` and `verify` are extremely ambiguous (crypto.subtle.sign, every signing API uses these); only update references that import from `src/utils/jwt/jwt.ts` (the JWT middleware imports them). Project must typecheck via `tsconfig.build.json`. Behavior unchanged."
+  },
+  {
+    "id": "T3f",
+    "family": "multi",
+    "topic": "rename-jsxnode",
+    "prompt": "Rename the exported class `JSXNode` in `src/jsx/base.ts` to `JSXElement`. Find every importer/user across `src/` (excluding `*.test.ts` files) and update every reference (imports, `instanceof` checks, type annotations, `new JSXNode(...)` if any). Project must typecheck via `tsconfig.build.json`. Behavior unchanged."
+  },
+  {
+    "id": "T3g",
+    "family": "multi",
+    "topic": "rename-honobase",
+    "prompt": "Rename the exported class `HonoBase` in `src/hono-base.ts` to `HonoCore`. Find every importer/user across `src/` (excluding `*.test.ts` files) and update every reference (imports, `extends HonoBase` declarations, type annotations, `instanceof` checks). Project must typecheck via `npx tsc --noEmit --project tsconfig.build.json`. Behavior unchanged."
+  },
+  {
+    "id": "T3h",
+    "family": "multi",
+    "topic": "rename-wscontext",
+    "prompt": "Rename the exported class `WSContext` in `src/helper/websocket/index.ts` to `WebSocketContext`. Find every importer/user across `src/` (excluding `*.test.ts` files) and update every reference (imports, type annotations, `new WSContext(...)`, `instanceof` checks). Project must typecheck via `npx tsc --noEmit --project tsconfig.build.json`. Behavior unchanged."
+  },
+  {
+    "id": "T3i",
+    "family": "multi",
+    "topic": "rename-compose",
+    "prompt": "Rename the exported function `compose` in `src/compose.ts` to `composeMiddleware`. Find every importer/user across `src/` (excluding `*.test.ts` files) and update every reference. Bare name `compose` is ambiguous (functional-composition utilities); only update references that import from `src/compose.ts`. Project must typecheck via `tsconfig.build.json`. Behavior unchanged."
+  },
+  {
+    "id": "T3j",
+    "family": "multi",
+    "topic": "rename-base64",
+    "prompt": "Rename the exported helpers `decodeBase64` and `encodeBase64` in `src/utils/encode.ts` to `b64Decode` and `b64Encode` respectively (leave the `*Url` variants alone). Find every importer/user across `src/` (excluding `*.test.ts` files) and update every reference. Project must typecheck via `tsconfig.build.json`. Behavior unchanged."
+  }
+]

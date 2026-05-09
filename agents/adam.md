@@ -32,13 +32,97 @@ Keep it under ~80 lines. Required structure (in order):
 2. **Stack** — bullet list: language, framework, DB, infra surface.
 3. **Runtime shape** — short ASCII diagram OR one paragraph showing how requests flow / how the bot ticks / how data moves. Skip if not applicable.
 4. **Spec index** — markdown table, one row per `spec/*.md`, columns: `Spec | Read when… | Tokens`. The Tokens column is filled via the `token-count` MCP.
-5. **Refreshing this file** — pointer to `/adam:spec-update`.
+5. **Response style** — short block telling the assistant how to balance brevity vs. verbosity. Always include this verbatim (or a near-verbatim equivalent — do **not** drop it):
+
+   > ## Response style
+   > - **Code requests** (implement, fix, refactor, add, change, write): reply with a 1–3 line briefing — what was done and which files changed. No diff summaries, no restating the task, no next-step suggestions unless asked.
+   > - **Explanations / chat questions** ("why", "how does", "explain", "what do you think"): reply normally, verbose as needed.
+   > - Default to brief. Don't waste output tokens.
+
+6. **When to use spec/graph** — short block telling the assistant when the spec + graph pay off vs when they're overhead. The spec and graph cost ~3K cached tokens, so route deliberately. Always include this verbatim (or a near-verbatim equivalent — do **not** drop it):
+
+   > ## When to use the spec + graph
+   >
+   > **Use them for:**
+   > - Cross-file refactors (rename, signature change, type widen) touching >2 files.
+   > - New code that follows a non-obvious convention spread across multiple files (new built-in middleware, new helper module, new method on a public class).
+   > - Tracing execution flows ("how does X reach Y").
+   > - Asking about codebase structure ("where does X live").
+   >
+   > **Skip them for:**
+   > - Single-file additive edits to an existing file (one new export to a util, a one-line fix).
+   > - Tasks completely scoped within one file you can already locate.
+   > - Reformatting / trivial typo fixes.
+   >
+   > If skipping: don't read `spec/`, don't call `gitnexus_*`. Just `Read` the file you need and `Edit`.
+
+7. **Editing rules** (when spec/graph is in scope) — Always include this verbatim (or a near-verbatim equivalent — do **not** drop it). Note: GitNexus is for **context injection only** — reading the graph for orientation. Edits always go through Claude Code's native `Edit` / `MultiEdit` tools.
+
+   > ## Editing rules (when spec/graph is in scope)
+   > - For **function or method renames**, locate via `gitnexus_context({name, repo: "<repo>"})` — the `incoming` list IS your edit list. **Trust it; do not re-grep.** Re-grepping a symbol the graph already resolved is the #1 source of cache pollution in refactors.
+   > - For **class / type / interface / exported const renames**, skip the graph and grep directly. Target the import statement, not the bare name: `grep -rn "import.*\\bX\\b.*from.*<path-fragment>" <source-root> -l`. Use `-l` (filenames only) — line-by-line grep on common names triggers tool-result spillover.
+   > - For **multi-symbol renames in one prompt**, issue all orientation calls in PARALLEL (one message, multiple `tool_use` blocks). Never loop the workflow per symbol.
+   > - Don't call `gitnexus_impact` for mechanical renames — its metadata bloats cache without changing the edit list. Save it for behavioral changes.
+   > - **Never read a tool-results spillover file.** If a tool says *"Output too large. Full output saved to: …"*, re-run the tool with narrower flags (add `-l`, narrow `--include`, narrow path). Reading the spillover permanently pollutes cache with noise.
+   > - For files >300 lines, read only the slice the graph returns ± 20 lines.
+   > - If the spec contains a recipe for the kind of change being requested, follow it.
+
+   The plugin ships a `PostToolUse` hook that re-indexes the graph in the background after every Edit/Write so the next graph query reads a working-tree-current view. No agent-visible noise — just keep editing, the graph stays fresh.
+
+8. **Refreshing this file** — pointer to `/adam:spec-update`.
 
 `CLAUDE.md` is a brief, not another spec. Push details into `spec/`.
 
-### `spec/*.md` files
+### `spec/` directory layout
 
-Each spec is **self-contained for one topic**. Frontmatter keeps only what consumers actually use:
+The spec tree splits into three folders by **purpose**, not by subsystem:
+
+```
+spec/
+├── INDEX.md                      # top-level index (one row per spec)
+├── overview.md                   # high-level "what is this project"
+├── rules/                        # adam workflow rules — IDENTICAL across projects
+│   ├── refactor.md               # written by scripts/write-spec-rules.sh
+│   ├── additive.md               # written by scripts/write-spec-rules.sh
+│   └── orient.md                 # written by scripts/write-spec-rules.sh
+├── project/                      # project-specific conventions
+│   ├── frontend.md               # frontend style / component patterns (if applicable)
+│   ├── backend.md                # backend layering / service patterns (if applicable)
+│   ├── stack.md                  # build / deps / runtime conventions
+│   └── <area>.md                 # one per detected convention area (cap ~5)
+└── concepts/                     # deep dives on important subsystems
+    ├── <subsystem>.md            # e.g. analyzer.md, chat-api.md, scheduler.md
+    └── …                         # one per detected non-trivial subsystem (cap ~6)
+```
+
+#### `spec/rules/` — what adam writes (identical everywhere)
+
+These propagate the bench-validated workflow behavior. **Don't generate them yourself** — call the deterministic script:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/write-spec-rules.sh "$PWD"
+```
+
+The script copies `templates/spec-rules/*.md` from the plugin into `<project>/spec/rules/`. Runs idempotently. Currently three files: `refactor.md` (cross-file refactor recipe), `additive.md` (adding new functionality), `orient.md` (read-only Q&A).
+
+#### `spec/project/` — what you generate from detection
+
+Project-specific conventions inferred from the working tree. Each file is one convention area:
+
+- `frontend.md` — component style, state management, styling system, file layout, naming. Generate when frontend code is present.
+- `backend.md` — service/route layering, middleware/auth conventions, error handling, DB access patterns. Generate when backend code is present.
+- `stack.md` — build system, package manager, linter/formatter, deploy target. Always useful.
+- One additional spec per distinct convention area (e.g. `data-pipeline.md`, `infra.md`).
+
+Cap at ~5 files. Each ≤ 1500 tokens. Read the actual code — these aren't placeholders.
+
+#### `spec/concepts/` — deep walkthroughs of important subsystems
+
+One file per non-trivial subsystem worth a deep explanation: a pair-discovery analyzer, a RAG retriever, a job scheduler, a real-time feed. **Each spec covering a code subsystem MUST include an anchors block** (see below). If the subsystem has a recurring edit shape (e.g. "every connector follows the same 4-file shape"), include a `## How to add a new <thing>` recipe — that's what makes additive tasks fast.
+
+Cap at ~6 files. Aim for the subsystems Claude will actually be asked about repeatedly.
+
+#### Spec frontmatter (project/ + concepts/ files)
 
 ```
 ---
@@ -49,14 +133,27 @@ updated: YYYY-MM-DD
 ---
 ```
 
-No `agents:` lists. No baked-in token counts (they're refreshed live in CLAUDE.md and INDEX). Topic granularity guidance:
+No `agents:` lists. No baked-in token counts (they're refreshed live in CLAUDE.md and INDEX).
 
-- Backend conventions, frontend conventions, infrastructure → one spec each.
-- An external integration with non-trivial auth/quirks → its own spec.
-- A subsystem with its own pipeline (analyzer, executor, scanner) → its own spec.
-- Architecture diagrams that span multiple subsystems → put in `overview.md`.
+If you're tempted to write more than ~5000 tokens in one spec, split it.
 
-Aim for **3–8 specs** for a small/medium repo. If you're tempted to write more than ~5000 tokens in one spec, split it.
+**Each spec covering a code subsystem MUST include an anchors block** — a list of symbols the spec is about, paired with the graph tool that resolves each one. Anchors let the assistant (and the auto-injecting hook) target the exact slice of source code it needs instead of reading whole files. Symbols, not line numbers — the graph stays fresh, so anchors don't need `spec-update` re-anchoring:
+
+```md
+### Anchors — `lib/mcp.ts` (≈540 lines)
+
+| Symbol | How to locate it |
+|---|---|
+| `TOOL_SCHEMAS` array | `gitnexus_context({name: "TOOL_SCHEMAS", repo: "<repo>"})` |
+| `ToolName` union | `gitnexus_cypher({query: "MATCH (n) WHERE n.name = 'ToolName' RETURN n.file, n.startLine, n.endLine"})` |
+| `executeTool` dispatcher | `gitnexus_context({name: "executeTool", repo: "<repo>"})` |
+
+Before editing an existing symbol: `gitnexus_impact({target, repo, direction: "upstream"})`.
+```
+
+Use real symbol names from the code, not invented ones. The hook only auto-injects context for symbols that are **backticked in the user's prompt and present in the graph** — so naming things accurately in the spec helps users name them accurately in their prompts, which is what makes the hook fire.
+
+**If the subsystem has a recurring edit shape** (e.g. "every MCP tool follows the same 4-step add pattern", "every Next.js route follows the same shape"), include a `## How to add a new <thing>` recipe — numbered steps referencing the anchors. Don't write a recipe for one-off subsystems where there's no recurring pattern.
 
 ### `spec/INDEX.md`
 
@@ -89,20 +186,23 @@ Run these in parallel before writing anything:
 3. **Subsystem detection.** Top-level dirs that look like subsystems: `core/`, `api/`, `worker/`, `dashboard/`, `interface/`, `db/`, `migrations/`, `connectors/`, `analyzer/`, `executor/`, `cli/`. Each warrants consideration as a spec.
 4. **Infrastructure detection.** `docker-compose.yml`, `Dockerfile`, `.github/workflows/*`, terraform/k8s manifests.
 5. **DB detection.** `db/schema.sql`, Prisma `schema.prisma`, Alembic `versions/`, Django `migrations/`.
-6. **Recent intent.** `git log --oneline -30` to understand what's actively being worked on. (`git log` may fail if not a repo — just skip.)
+6. **Knowledge-graph state.** GitNexus is a hard prerequisite for the workflow adam ships. Run `gitnexus list` to see indexed repos and check whether the current path appears. If it doesn't, the user needs to run `gitnexus analyze` (or `gitnexus analyze --skip-git` for non-git folders) before specs become useful — note this in your final report.
+7. **Recent intent.** `git log --oneline -30` to understand what's actively being worked on. (`git log` may fail if not a repo — just skip.)
 
 ## Algorithm — first-time setup (spec scaffolding only)
 
 The parent `setup` skill dispatches you for spec scaffolding. It handles `.claude/` automations separately via interactive prompts — do **NOT** write to `.claude/` here.
 
 1. Run detection (above).
-2. Decide spec list. Always include `overview.md`. Add one per major subsystem detected (cap at ~8). For each, write a concrete `description` line that says **when to read it**.
-3. Create `spec/` directory. Write each spec as a substantive draft based on what you observed in the code — file paths, module names, key functions. Do not write placeholder content; if you don't know enough about a subsystem to write a useful page, skip it.
-4. Write `spec/INDEX.md`.
-5. Write `CLAUDE.md` using the structure above. Use the `token-count` MCP (tool name typically `mcp__*token-count__count`) on each spec to fill the Tokens column.
-6. Use the `spec-lint` MCP to check the result. Fix any reported issues.
-7. In your final report, **include the detection signals you observed** (stack, frameworks, subsystems, infrastructure) so the parent skill can use them to suggest `.claude/` automations. Don't write `.claude/` files yourself.
-8. Report: list every file created/modified, plus the detection signals, plus any drift or risk you noticed but did not act on.
+2. **`spec/rules/`** — *do not write yourself*. The parent `setup` skill calls `scripts/write-spec-rules.sh` deterministically. Trust it ran; reference these in your CLAUDE.md spec index. Files: `refactor.md`, `additive.md`, `orient.md`.
+3. **`spec/project/`** — generate from detection. One file per convention area you can describe substantively: `frontend.md`, `backend.md`, `stack.md`, plus 0–2 area-specific (`infra.md`, `data-pipeline.md`, etc.). Cap ~5. Skip an area if you don't have enough signal to write something concrete.
+4. **`spec/concepts/`** — generate from detection. One file per non-trivial subsystem worth a deep walkthrough. Always include the **anchors block** (see structure section). If the subsystem has a recurring edit shape, include a `## How to add a new <thing>` recipe with a complete drop-in template — not a schematic. Cap ~6. Skip if the subsystem is trivial.
+5. **`spec/overview.md`** — high-level "what is this project". One paragraph + a runtime-shape diagram or paragraph if applicable. Don't repeat what's in `project/` or `concepts/`; this is a map, not a walkthrough.
+6. **`spec/INDEX.md`** — table with one row per spec across all three folders, in reading order: `overview.md`, then `project/*`, then `concepts/*`, then `rules/*`. Columns: `Spec | Read when… | Tokens`.
+7. **`CLAUDE.md`** — write using the 8-section structure above. The Spec Index table mirrors `INDEX.md` (omit `rules/` from the CLAUDE.md table — they're referenced from the routing block instead). Use the `token-count` MCP for token counts.
+8. Use the `spec-lint` MCP to check the result. Fix any reported issues.
+9. In your final report, **include the detection signals you observed** (stack, frameworks, subsystems, infrastructure) so the parent skill can use them to suggest `.claude/` automations. Don't write `.claude/` files yourself.
+10. Report: list every file created/modified by folder, plus the detection signals, plus any drift or risk you noticed but did not act on.
 
 ## Algorithm — add a single `.claude/` artifact
 

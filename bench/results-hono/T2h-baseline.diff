@@ -1,0 +1,15 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/helper/clear-cookies/index.ts ./src/helper/clear-cookies/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/helper/clear-cookies/index.ts	1969-12-31 21:00:00
++++ ./src/helper/clear-cookies/index.ts	2026-05-08 22:25:05
+@@ -0,0 +1,11 @@
++import type { Context } from '../../context'
++import { setCookie } from '../cookie'
++
++export const clearAllCookies = (c: Context): void => {
++  const cookieHeader = c.req.header('Cookie')
++  if (!cookieHeader) return
++  for (const part of cookieHeader.split(';')) {
++    const name = part.split('=')[0].trim()
++    if (name) setCookie(c, name, '', { maxAge: 0 })
++  }
++}

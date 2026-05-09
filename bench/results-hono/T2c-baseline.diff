@@ -1,0 +1,41 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/language-tag/index.ts ./src/middleware/language-tag/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/language-tag/index.ts	1969-12-31 21:00:00
++++ ./src/middleware/language-tag/index.ts	2026-05-08 22:20:57
+@@ -0,0 +1,37 @@
++/**
++ * @module
++ * Language Tag Middleware for Hono.
++ */
++import type { MiddlewareHandler } from '../../types'
++import { parseAccept } from '../../utils/accept'
++
++declare module '../..' {
++  interface ContextVariableMap {
++    language: string
++  }
++}
++
++/**
++ * Language Tag Middleware
++ *
++ * Parses the `Accept-Language` header, selects the highest-quality tag
++ * present in `options.allowed`, and stores it via `c.set('language', tag)`.
++ * Falls back to `options.default` when no allowed tag matches.
++ */
++export const languageTag = (options: { allowed: string[]; default: string }): MiddlewareHandler => {
++  return async function languageTag(c, next) {
++    const header = c.req.header('Accept-Language') ?? ''
++    const accepted = parseAccept(header)
++
++    let tag = options.default
++    for (const { type } of accepted) {
++      if (options.allowed.includes(type)) {
++        tag = type
++        break
++      }
++    }
++
++    c.set('language', tag)
++    await next()
++  }
++}

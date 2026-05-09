@@ -1,0 +1,18 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/if-none-match/index.ts ./src/middleware/if-none-match/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/if-none-match/index.ts	1969-12-31 21:00:00
++++ ./src/middleware/if-none-match/index.ts	2026-05-08 22:21:25
+@@ -0,0 +1,14 @@
++import type { MiddlewareHandler } from '../../types'
++
++export const ifNoneMatch = (): MiddlewareHandler => {
++  return async (c, next) => {
++    await next()
++    const etag = c.res.headers.get('ETag')
++    if (etag && c.req.header('If-None-Match') === etag) {
++      c.res = new Response(null, {
++        status: 304,
++        headers: { ETag: etag },
++      })
++    }
++  }
++}

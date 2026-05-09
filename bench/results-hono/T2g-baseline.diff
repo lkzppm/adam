@@ -1,0 +1,14 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/helper/bearer/index.ts ./src/helper/bearer/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/helper/bearer/index.ts	1969-12-31 21:00:00
++++ ./src/helper/bearer/index.ts	2026-05-08 22:24:38
+@@ -0,0 +1,10 @@
++import type { Context } from '../../context'
++
++export const getBearerToken = (c: Context): string | null => {
++  const header = c.req.raw.headers.get('Authorization')
++  if (!header) {
++    return null
++  }
++  const match = header.match(/^[Bb]earer\s+(.+)$/i)
++  return match ? match[1] : null
++}

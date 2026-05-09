@@ -1,0 +1,41 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/utils/jwt/index.ts ./src/utils/jwt/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/utils/jwt/index.ts	2026-05-08 15:08:09
++++ ./src/utils/jwt/index.ts	2026-05-08 23:27:40
+@@ -3,5 +3,5 @@
+  * JWT utility.
+  */
+ 
+-import { decode, sign, verify, verifyWithJwks } from './jwt'
+-export const Jwt = { sign, verify, decode, verifyWithJwks }
++import { decode, signJwt, verifyJwt, verifyWithJwks } from './jwt'
++export const Jwt = { sign: signJwt, verify: verifyJwt, decode, verifyWithJwks }
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/utils/jwt/jwt.ts ./src/utils/jwt/jwt.ts
+--- /Users/lkz/Desktop/Code/hono/src/utils/jwt/jwt.ts	2026-05-08 15:08:09
++++ ./src/utils/jwt/jwt.ts	2026-05-08 23:27:54
+@@ -53,7 +53,7 @@
+   return false
+ }
+ 
+-export const sign = async (
++export const signJwt = async (
+   payload: JWTPayload,
+   privateKey: SignatureKey,
+   alg: SignatureAlgorithm = 'HS256'
+@@ -93,7 +93,7 @@
+   alg: SignatureAlgorithm
+ } & VerifyOptions
+ 
+-export const verify = async (
++export const verifyJwt = async (
+   token: string,
+   publicKey: SignatureKey,
+   algOrOptions: SignatureAlgorithm | VerifyOptionsWithAlg
+@@ -255,7 +255,7 @@
+     throw new JwtAlgorithmMismatch(matchingKey.alg, header.alg)
+   }
+ 
+-  return await verify(token, matchingKey, {
++  return await verifyJwt(token, matchingKey, {
+     alg: header.alg,
+     ...verifyOpts,
+   })

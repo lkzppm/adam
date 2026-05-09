@@ -1,0 +1,732 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/client/types.ts ./src/client/types.ts
+--- /Users/lkz/Desktop/Code/hono/src/client/types.ts	2026-05-08 15:08:09
++++ ./src/client/types.ts	2026-05-08 23:32:36
+@@ -1,5 +1,5 @@
+ import type { Hono } from '../hono'
+-import type { HonoBase } from '../hono-base'
++import type { HonoCore } from '../hono-base'
+ import type { METHODS, METHOD_NAME_ALL_LOWERCASE } from '../router'
+ import type { Endpoint, ExtractSchema, KnownResponseFormat, ResponseFormat, Schema } from '../types'
+ import type { StatusCode, SuccessStatusCode } from '../utils/http-status'
+@@ -309,7 +309,7 @@
+       }
+ 
+ export type Client<T, Prefix extends string> =
+-  T extends HonoBase<any, infer S, any>
++  T extends HonoCore<any, infer S, any>
+     ? S extends Record<infer K, Schema>
+       ? K extends string
+         ? PathToChain<Prefix, K, S>
+@@ -356,7 +356,7 @@
+ }
+ 
+ export type ApplyGlobalResponse<App, Def extends GlobalResponseDefinition> =
+-  App extends HonoBase<infer E, infer _ extends Schema, infer B>
++  App extends HonoCore<infer E, infer _ extends Schema, infer B>
+     ? ModSchema<ExtractSchema<App>, Def> extends infer S extends Schema
+       ? Hono<E, S, B>
+       : never
+@@ -386,7 +386,7 @@
+  * ```
+  */
+ export type PickResponseByStatusCode<App, U extends StatusCode> =
+-  App extends HonoBase<infer E, infer _ extends Schema, infer B>
++  App extends HonoCore<infer E, infer _ extends Schema, infer B>
+     ? PickSchema<ExtractSchema<App>, U> extends infer S extends Schema
+       ? Hono<E, S, B>
+       : never
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/hono-base.ts ./src/hono-base.ts
+--- /Users/lkz/Desktop/Code/hono/src/hono-base.ts	2026-05-08 15:08:09
++++ ./src/hono-base.ts	2026-05-08 23:32:16
+@@ -536,4 +536,4 @@
+   }
+ }
+ 
+-export { Hono as HonoBase }
++export { Hono as HonoCore }
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/hono.ts ./src/hono.ts
+--- /Users/lkz/Desktop/Code/hono/src/hono.ts	2026-05-08 15:08:09
++++ ./src/hono.ts	2026-05-08 23:32:45
+@@ -1,4 +1,4 @@
+-import { HonoBase } from './hono-base'
++import { HonoCore } from './hono-base'
+ import type { HonoOptions } from './hono-base'
+ import { RegExpRouter } from './router/reg-exp-router'
+ import { SmartRouter } from './router/smart-router'
+@@ -6,7 +6,7 @@
+ import type { BlankEnv, BlankSchema, Env, Schema } from './types'
+ 
+ /**
+- * The Hono class extends the functionality of the HonoBase class.
++ * The Hono class extends the functionality of the HonoCore class.
+  * It sets up routing and allows for custom options to be passed.
+  *
+  * @template E - The environment type.
+@@ -17,7 +17,7 @@
+   E extends Env = BlankEnv,
+   S extends Schema = BlankSchema,
+   BasePath extends string = '/',
+-> extends HonoBase<E, S, BasePath> {
++> extends HonoCore<E, S, BasePath> {
+   /**
+    * Creates an instance of the Hono class.
+    *
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/preset/quick.ts ./src/preset/quick.ts
+--- /Users/lkz/Desktop/Code/hono/src/preset/quick.ts	2026-05-08 15:08:09
++++ ./src/preset/quick.ts	2026-05-08 23:32:32
+@@ -3,7 +3,7 @@
+  * The preset that uses `LinearRouter`.
+  */
+ 
+-import { HonoBase } from '../hono-base'
++import { HonoCore } from '../hono-base'
+ import type { HonoOptions } from '../hono-base'
+ import { LinearRouter } from '../router/linear-router'
+ import { SmartRouter } from '../router/smart-router'
+@@ -14,7 +14,7 @@
+   E extends Env = BlankEnv,
+   S extends Schema = BlankSchema,
+   BasePath extends string = '/',
+-> extends HonoBase<E, S, BasePath> {
++> extends HonoCore<E, S, BasePath> {
+   constructor(options: HonoOptions<E> = {}) {
+     super(options)
+     this.router = new SmartRouter({
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/preset/tiny.ts ./src/preset/tiny.ts
+--- /Users/lkz/Desktop/Code/hono/src/preset/tiny.ts	2026-05-08 15:08:09
++++ ./src/preset/tiny.ts	2026-05-08 23:32:32
+@@ -3,7 +3,7 @@
+  * The preset that uses `PatternRouter`.
+  */
+ 
+-import { HonoBase } from '../hono-base'
++import { HonoCore } from '../hono-base'
+ import type { HonoOptions } from '../hono-base'
+ import { PatternRouter } from '../router/pattern-router'
+ import type { BlankEnv, BlankSchema, Env, Schema } from '../types'
+@@ -12,7 +12,7 @@
+   E extends Env = BlankEnv,
+   S extends Schema = BlankSchema,
+   BasePath extends string = '/',
+-> extends HonoBase<E, S, BasePath> {
++> extends HonoCore<E, S, BasePath> {
+   constructor(options: HonoOptions<E> = {}) {
+     super(options)
+     this.router = new PatternRouter()
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/types.ts ./src/types.ts
+--- /Users/lkz/Desktop/Code/hono/src/types.ts	2026-05-08 15:08:09
++++ ./src/types.ts	2026-05-08 23:32:35
+@@ -5,7 +5,7 @@
+ 
+ /* eslint-disable @typescript-eslint/no-explicit-any */
+ import type { Context } from './context'
+-import type { HonoBase } from './hono-base'
++import type { HonoCore } from './hono-base'
+ import type { CustomHeader, RequestHeader } from './utils/headers'
+ import type { StatusCode } from './utils/http-status'
+ import type {
+@@ -139,7 +139,7 @@
+     E2 extends Env = E,
+   >(
+     handler: H<E2, P, I, R>
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2]>,
+     S & ToSchema<M, P, I, MergeTypedResponse<R>>,
+     BasePath,
+@@ -157,7 +157,7 @@
+     M1 extends H<E2, P, I> = H<E2, P, I>,
+   >(
+     ...handlers: [H<E2, P, I> & M1, H<E3, P, I2, R>]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3]>,
+     S & ToSchema<M, P, I2, MergeTypedResponse<R> | MergeMiddlewareResponse<M1>>,
+     BasePath,
+@@ -174,7 +174,7 @@
+   >(
+     path: P,
+     handler: H<E2, MergedPath, I, R>
+-  ): HonoBase<
++  ): HonoCore<
+     E,
+     AddSchemaIfHasResponse<MergeTypedResponse<R>, S, M, P, I, BasePath>,
+     BasePath,
+@@ -196,7 +196,7 @@
+     M2 extends H<E3, P, I2> = H<E3, P, I2>,
+   >(
+     ...handlers: [H<E2, P, I> & M1, H<E3, P, I2> & M2, H<E4, P, I3, R>]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4]>,
+     S &
+       ToSchema<
+@@ -223,7 +223,7 @@
+   >(
+     path: P,
+     ...handlers: [H<E2, MergedPath, I> & M1, H<E3, MergedPath, I2, R>]
+-  ): HonoBase<
++  ): HonoCore<
+     E,
+     AddSchemaIfHasResponse<
+       MergeTypedResponse<R> | MergeMiddlewareResponse<M1>,
+@@ -255,7 +255,7 @@
+     M3 extends H<E4, P, I3> = H<E4, P, I3>,
+   >(
+     ...handlers: [H<E2, P, I> & M1, H<E3, P, I2> & M2, H<E4, P, I3> & M3, H<E5, P, I4, R>]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5]>,
+     S &
+       ToSchema<
+@@ -288,7 +288,7 @@
+   >(
+     path: P,
+     ...handlers: [H<E2, MergedPath, I> & M1, H<E3, MergedPath, I2> & M2, H<E4, MergedPath, I3, R>]
+-  ): HonoBase<
++  ): HonoCore<
+     E,
+     AddSchemaIfHasResponse<
+       MergeTypedResponse<R> | MergeMiddlewareResponse<M1> | MergeMiddlewareResponse<M2>,
+@@ -329,7 +329,7 @@
+       H<E5, P, I4> & M4,
+       H<E6, P, I5, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6]>,
+     S &
+       ToSchema<
+@@ -371,7 +371,7 @@
+       H<E4, MergedPath, I3> & M3,
+       H<E5, MergedPath, I4, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     E,
+     AddSchemaIfHasResponse<
+       | MergeTypedResponse<R>
+@@ -419,7 +419,7 @@
+       H<E6, P, I5> & M5,
+       H<E7, P, I6, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7]>,
+     S &
+       ToSchema<
+@@ -466,7 +466,7 @@
+       H<E5, MergedPath, I4> & M4,
+       H<E6, MergedPath, I5, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     E,
+     AddSchemaIfHasResponse<
+       | MergeTypedResponse<R>
+@@ -519,7 +519,7 @@
+       H<E7, P, I6> & M6,
+       H<E8, P, I7, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8]>,
+     S &
+       ToSchema<
+@@ -571,7 +571,7 @@
+       H<E6, MergedPath, I5> & M5,
+       H<E7, MergedPath, I6, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     E,
+     AddSchemaIfHasResponse<
+       | MergeTypedResponse<R>
+@@ -629,7 +629,7 @@
+       H<E8, P, I7> & M7,
+       H<E9, P, I8, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9]>,
+     S &
+       ToSchema<
+@@ -686,7 +686,7 @@
+       H<E7, MergedPath, I6> & M6,
+       H<E8, MergedPath, I7, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     E,
+     AddSchemaIfHasResponse<
+       | MergeTypedResponse<R>
+@@ -749,7 +749,7 @@
+       H<E9, P, I8> & M8,
+       H<E10, P, I9, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9, E10]>,
+     S &
+       ToSchema<
+@@ -811,7 +811,7 @@
+       H<E8, MergedPath, I7> & M7,
+       H<E9, MergedPath, I8, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     E,
+     AddSchemaIfHasResponse<
+       | MergeTypedResponse<R>
+@@ -879,7 +879,7 @@
+       H<E10, P, I9> & M9,
+       H<E11, P, I10, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9, E10, E11]>,
+     S &
+       ToSchema<
+@@ -946,7 +946,7 @@
+       H<E9, MergedPath, I8> & M8,
+       H<E10, MergedPath, I9, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     E,
+     AddSchemaIfHasResponse<
+       | MergeTypedResponse<R>
+@@ -1017,7 +1017,7 @@
+       H<E10, MergedPath, I9> & M9,
+       H<E11, MergedPath, I10, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     E,
+     AddSchemaIfHasResponse<
+       | MergeTypedResponse<R>
+@@ -1047,13 +1047,13 @@
+     R extends HandlerResponse<any> = any,
+   >(
+     ...handlers: H<E, P, I, R>[]
+-  ): HonoBase<E, S & ToSchema<M, P, I, MergeTypedResponse<R>>, BasePath, CurrentPath>
++  ): HonoCore<E, S & ToSchema<M, P, I, MergeTypedResponse<R>>, BasePath, CurrentPath>
+ 
+   // app.get(path, ...handlers[])
+   <P extends string, I extends Input = BlankInput, R extends HandlerResponse<any> = any>(
+     path: P,
+     ...handlers: [H<E, MergePath<BasePath, P>, I, R>, ...H<E, MergePath<BasePath, P>, I, R>[]]
+-  ): HonoBase<
++  ): HonoCore<
+     E,
+     S & ToSchema<M, MergePath<BasePath, P>, I, MergeTypedResponse<R>>,
+     BasePath,
+@@ -1063,7 +1063,7 @@
+   // app.get(path)
+   <P extends string, R extends HandlerResponse<any> = any, I extends Input = BlankInput>(
+     path: P
+-  ): HonoBase<
++  ): HonoCore<
+     E,
+     S & ToSchema<M, MergePath<BasePath, P>, I, MergeTypedResponse<R>>,
+     BasePath,
+@@ -1085,12 +1085,12 @@
+   //// app.use(...handlers[])
+   <E2 extends Env = E>(
+     ...handlers: MiddlewareHandler<E2, MergePath<BasePath, '*'>>[]
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2]>, S, BasePath, MergePath<BasePath, '*'>>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2]>, S, BasePath, MergePath<BasePath, '*'>>
+ 
+   // app.use(handler)
+   <E2 extends Env = E>(
+     handler: MiddlewareHandler<E2, MergePath<BasePath, '*'>>
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2]>, S, BasePath, MergePath<BasePath, '*'>>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2]>, S, BasePath, MergePath<BasePath, '*'>>
+ 
+   // app.use(handler x2)
+   <
+@@ -1099,13 +1099,13 @@
+     P extends string = MergePath<BasePath, '*'>,
+   >(
+     ...handlers: [MiddlewareHandler<E2, P>, MiddlewareHandler<E3, P>]
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2, E3]>, S, BasePath, P>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2, E3]>, S, BasePath, P>
+ 
+   // app.use(path, handler)
+   <P extends string, MergedPath extends MergePath<BasePath, P>, E2 extends Env = E>(
+     path: P,
+     handler: MiddlewareHandler<E2, MergedPath, any, any>
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2]>, S, BasePath, MergedPath>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2]>, S, BasePath, MergedPath>
+ 
+   // app.use(handler x3)
+   <
+@@ -1119,7 +1119,7 @@
+       MiddlewareHandler<E3, P, any, any>,
+       MiddlewareHandler<E4, P, any, any>,
+     ]
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2, E3, E4]>, S, BasePath, P>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2, E3, E4]>, S, BasePath, P>
+ 
+   // app.use(path, handler x2)
+   <
+@@ -1130,7 +1130,7 @@
+   >(
+     path: P,
+     ...handlers: [MiddlewareHandler<E2, P>, MiddlewareHandler<E3, P>]
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2, E3]>, S, BasePath, MergedPath>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2, E3]>, S, BasePath, MergedPath>
+ 
+   // app.use(handler x4)
+   <
+@@ -1146,7 +1146,7 @@
+       MiddlewareHandler<E4, P>,
+       MiddlewareHandler<E5, P>,
+     ]
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2, E3, E4, E5]>, S, BasePath, P>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2, E3, E4, E5]>, S, BasePath, P>
+ 
+   // app.use(path, handler x3)
+   <
+@@ -1158,7 +1158,7 @@
+   >(
+     path: P,
+     ...handlers: [MiddlewareHandler<E2, P>, MiddlewareHandler<E3, P>, MiddlewareHandler<E4, P>]
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2, E3, E4]>, S, BasePath, MergedPath>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2, E3, E4]>, S, BasePath, MergedPath>
+ 
+   // app.use(handler x5)
+   <
+@@ -1176,7 +1176,7 @@
+       MiddlewareHandler<E5, P>,
+       MiddlewareHandler<E6, P>,
+     ]
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6]>, S, BasePath, P>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6]>, S, BasePath, P>
+ 
+   // app.use(path, handler x4)
+   <
+@@ -1194,7 +1194,7 @@
+       MiddlewareHandler<E4, P>,
+       MiddlewareHandler<E5, P>,
+     ]
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2, E3, E4, E5]>, S, BasePath, MergedPath>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2, E3, E4, E5]>, S, BasePath, MergedPath>
+ 
+   // app.use(handler x6)
+   <
+@@ -1214,7 +1214,7 @@
+       MiddlewareHandler<E6, P>,
+       MiddlewareHandler<E7, P>,
+     ]
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7]>, S, BasePath, P>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7]>, S, BasePath, P>
+ 
+   // app.use(path, handler x5)
+   <
+@@ -1234,7 +1234,7 @@
+       MiddlewareHandler<E5, P>,
+       MiddlewareHandler<E6, P>,
+     ]
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6]>, S, BasePath, MergedPath>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6]>, S, BasePath, MergedPath>
+ 
+   // app.use(handler x7)
+   <
+@@ -1256,7 +1256,7 @@
+       MiddlewareHandler<E7, P>,
+       MiddlewareHandler<E8, P>,
+     ]
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8]>, S, BasePath, P>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8]>, S, BasePath, P>
+ 
+   // app.use(path, handler x6)
+   <
+@@ -1278,7 +1278,7 @@
+       MiddlewareHandler<E6, P>,
+       MiddlewareHandler<E7, P>,
+     ]
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7]>, S, BasePath, MergedPath>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7]>, S, BasePath, MergedPath>
+ 
+   // app.use(handler x8)
+   <
+@@ -1302,7 +1302,7 @@
+       MiddlewareHandler<E8, P>,
+       MiddlewareHandler<E9, P>,
+     ]
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9]>, S, BasePath, P>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9]>, S, BasePath, P>
+ 
+   // app.use(path, handler x7)
+   <
+@@ -1326,7 +1326,7 @@
+       MiddlewareHandler<E7, P>,
+       MiddlewareHandler<E8, P>,
+     ]
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8]>, S, BasePath, MergedPath>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8]>, S, BasePath, MergedPath>
+ 
+   // app.use(handler x9)
+   <
+@@ -1352,7 +1352,7 @@
+       MiddlewareHandler<E9, P>,
+       MiddlewareHandler<E10, P>,
+     ]
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9, E10]>, S, BasePath, P>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9, E10]>, S, BasePath, P>
+ 
+   // app.use(path, handler x8)
+   <
+@@ -1378,7 +1378,7 @@
+       MiddlewareHandler<E8, P>,
+       MiddlewareHandler<E9, P>,
+     ]
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9]>, S, BasePath, MergedPath>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9]>, S, BasePath, MergedPath>
+ 
+   // app.use(handler x10)
+   <
+@@ -1406,7 +1406,7 @@
+       MiddlewareHandler<E10, P>,
+       MiddlewareHandler<E11, P>,
+     ]
+-  ): HonoBase<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9, E10, E11]>, S, BasePath, P>
++  ): HonoCore<IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9, E10, E11]>, S, BasePath, P>
+ 
+   // app.use(path, handler x9)
+   <
+@@ -1434,7 +1434,7 @@
+       MiddlewareHandler<E9, P>,
+       MiddlewareHandler<E10, P>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9, E10]>,
+     S,
+     BasePath,
+@@ -1445,7 +1445,7 @@
+   <P extends string, E2 extends Env = E>(
+     path: P,
+     ...handlers: MiddlewareHandler<E2, MergePath<BasePath, P>>[]
+-  ): HonoBase<E, S, BasePath, MergePath<BasePath, P>>
++  ): HonoCore<E, S, BasePath, MergePath<BasePath, P>>
+ }
+ 
+ ////////////////////////////////////////
+@@ -1471,7 +1471,7 @@
+     method: M,
+     path: P,
+     handler: H<E2, MergedPath, I, R>
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2]>,
+     S & ToSchema<M, MergePath<BasePath, P>, I, MergeTypedResponse<R>>,
+     BasePath,
+@@ -1494,7 +1494,7 @@
+     method: M,
+     path: P,
+     ...handlers: [H<E2, MergedPath, I> & M1, H<E3, MergedPath, I2, R>]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3]>,
+     S &
+       ToSchema<M, MergePath<BasePath, P>, I2, MergeTypedResponse<R> | MergeMiddlewareResponse<M1>>,
+@@ -1521,7 +1521,7 @@
+     method: M,
+     path: P,
+     ...handlers: [H<E2, MergedPath, I> & M1, H<E3, MergedPath, I2> & M2, H<E4, MergedPath, I3, R>]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4]>,
+     S &
+       ToSchema<
+@@ -1561,7 +1561,7 @@
+       H<E4, MergedPath, I3> & M3,
+       H<E5, MergedPath, I4, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5]>,
+     S &
+       ToSchema<
+@@ -1608,7 +1608,7 @@
+       H<E5, MergedPath, I4> & M4,
+       H<E6, MergedPath, I5, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6]>,
+     S &
+       ToSchema<
+@@ -1660,7 +1660,7 @@
+       H<E6, MergedPath, I5> & M5,
+       H<E7, MergedPath, I6, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7]>,
+     S &
+       ToSchema<
+@@ -1717,7 +1717,7 @@
+       H<E7, MergedPath, I6> & M6,
+       H<E8, MergedPath, I7, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8]>,
+     S &
+       ToSchema<
+@@ -1779,7 +1779,7 @@
+       H<E8, MergedPath, I7> & M7,
+       H<E9, MergedPath, I8, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9]>,
+     S &
+       ToSchema<
+@@ -1846,7 +1846,7 @@
+       H<E9, MergedPath, I8> & M8,
+       H<E10, MergedPath, I9, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9, E10]>,
+     S &
+       ToSchema<
+@@ -1918,7 +1918,7 @@
+       H<E10, MergedPath, I9> & M9,
+       H<E11, MergedPath, I10, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9, E10, E11]>,
+     S &
+       ToSchema<
+@@ -1950,7 +1950,7 @@
+     method: M,
+     path: P,
+     ...handlers: [H<E, MergePath<BasePath, P>, I, R>, ...H<E, MergePath<BasePath, P>, I, R>[]]
+-  ): HonoBase<
++  ): HonoCore<
+     E,
+     S & ToSchema<M, MergePath<BasePath, P>, I, MergeTypedResponse<R>>,
+     BasePath,
+@@ -1969,7 +1969,7 @@
+     methods: M[],
+     path: P,
+     handler: H<E2, MergedPath, I, R>
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2]>,
+     S & ToSchema<M, MergePath<BasePath, P>, I, MergeTypedResponse<R>>,
+     BasePath,
+@@ -1992,7 +1992,7 @@
+     methods: M[],
+     path: P,
+     ...handlers: [H<E2, MergedPath, I> & M1, H<E3, MergedPath, I2, R>]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3]>,
+     S &
+       ToSchema<M, MergePath<BasePath, P>, I2, MergeTypedResponse<R> | MergeMiddlewareResponse<M1>>,
+@@ -2019,7 +2019,7 @@
+     methods: M[],
+     path: P,
+     ...handlers: [H<E2, MergedPath, I> & M1, H<E3, MergedPath, I2> & M2, H<E4, MergedPath, I3, R>]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4]>,
+     S &
+       ToSchema<
+@@ -2059,7 +2059,7 @@
+       H<E4, MergedPath, I3> & M3,
+       H<E5, MergedPath, I4, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5]>,
+     S &
+       ToSchema<
+@@ -2106,7 +2106,7 @@
+       H<E5, MergedPath, I4> & M4,
+       H<E6, MergedPath, I5, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6]>,
+     S &
+       ToSchema<
+@@ -2158,7 +2158,7 @@
+       H<E6, MergedPath, I5> & M5,
+       H<E7, MergedPath, I6, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7]>,
+     S &
+       ToSchema<
+@@ -2215,7 +2215,7 @@
+       H<E7, MergedPath, I6> & M6,
+       H<E8, MergedPath, I7, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8]>,
+     S &
+       ToSchema<
+@@ -2277,7 +2277,7 @@
+       H<E8, MergedPath, I7> & M7,
+       H<E9, MergedPath, I8, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9]>,
+     S &
+       ToSchema<
+@@ -2344,7 +2344,7 @@
+       H<E9, MergedPath, I8> & M8,
+       H<E10, MergedPath, I9, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9, E10]>,
+     S &
+       ToSchema<
+@@ -2416,7 +2416,7 @@
+       H<E10, MergedPath, I9> & M9,
+       H<E11, MergedPath, I10, R>,
+     ]
+-  ): HonoBase<
++  ): HonoCore<
+     IntersectNonAnyTypes<[E, E2, E3, E4, E5, E6, E7, E8, E9, E10, E11]>,
+     S &
+       ToSchema<
+@@ -2448,7 +2448,7 @@
+     methods: M[],
+     path: P,
+     ...handlers: [H<E, MergePath<BasePath, P>, I, R>, ...H<E, MergePath<BasePath, P>, I, R>[]]
+-  ): HonoBase<
++  ): HonoCore<
+     E,
+     S & ToSchema<M, MergePath<BasePath, P>, I, MergeTypedResponse<R>>,
+     BasePath,
+@@ -2466,7 +2466,7 @@
+     methods: M | M[],
+     paths: Ps,
+     ...handlers: H<E2, MergePath<BasePath, Ps[number]>, I, R>[]
+-  ): HonoBase<
++  ): HonoCore<
+     E,
+     S & ToSchema<M, MergePath<BasePath, Ps[number]>, I, MergeTypedResponse<R>>,
+     BasePath,
+@@ -2735,7 +2735,7 @@
+ ////////////////////////////////////////
+ 
+ export type ExtractSchema<T> = UnionToIntersection<
+-  T extends HonoBase<infer _, infer S, any, any> ? S : never
++  T extends HonoCore<infer _, infer S, any, any> ? S : never
+ >
+ 
+ export type ExtractSchemaForStatusCode<T, Status extends number> = {

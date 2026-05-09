@@ -1,0 +1,69 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/helper/html/index.ts ./src/helper/html/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/helper/html/index.ts	2026-05-08 15:08:09
++++ ./src/helper/html/index.ts	2026-05-08 23:14:02
+@@ -8,7 +8,7 @@
+ 
+ export { raw }
+ 
+-export const html = (
++export const htmlTemplate = (
+   strings: TemplateStringsArray,
+   ...values: unknown[]
+ ): HtmlEscapedString | Promise<HtmlEscapedString> => {
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/helper/ssg/plugins.ts ./src/helper/ssg/plugins.ts
+--- /Users/lkz/Desktop/Code/hono/src/helper/ssg/plugins.ts	2026-05-08 15:08:09
++++ ./src/helper/ssg/plugins.ts	2026-05-08 23:14:07
+@@ -1,4 +1,4 @@
+-import { html } from '../html'
++import { htmlTemplate } from '../html'
+ import type { SSGPlugin } from './ssg'
+ 
+ /**
+@@ -23,7 +23,7 @@
+ 
+ const generateRedirectHtml = (location: string) => {
+   // prettier-ignore
+-  const content = html`<!DOCTYPE html>
++  const content = htmlTemplate`<!DOCTYPE html>
+ <title>Redirecting to: ${location}</title>
+ <meta http-equiv="refresh" content="0;url=${location}" />
+ <meta name="robots" content="noindex" />
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/jsx/jsx-runtime.ts ./src/jsx/jsx-runtime.ts
+--- /Users/lkz/Desktop/Code/hono/src/jsx/jsx-runtime.ts	2026-05-08 15:08:09
++++ ./src/jsx/jsx-runtime.ts	2026-05-08 23:14:09
+@@ -6,12 +6,12 @@
+ export { jsxDEV as jsx, Fragment } from './jsx-dev-runtime'
+ export { jsxDEV as jsxs } from './jsx-dev-runtime'
+ export type { JSX } from './jsx-dev-runtime'
+-import { html, raw } from '../helper/html'
++import { htmlTemplate, raw } from '../helper/html'
+ import type { HtmlEscapedString, StringBuffer, HtmlEscaped } from '../utils/html'
+ import { escapeToBuffer, stringBufferToString } from '../utils/html'
+ import { isValidAttributeName, styleObjectForEach } from './utils'
+ 
+-export { html as jsxTemplate }
++export { htmlTemplate as jsxTemplate }
+ 
+ export const jsxAttr = (
+   key: string,
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/jsx-renderer/index.ts ./src/middleware/jsx-renderer/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/jsx-renderer/index.ts	2026-05-08 15:08:09
++++ ./src/middleware/jsx-renderer/index.ts	2026-05-08 23:14:10
+@@ -5,7 +5,7 @@
+ 
+ /* eslint-disable @typescript-eslint/no-explicit-any */
+ import type { Context, PropsForRenderer } from '../../context'
+-import { html, raw } from '../../helper/html'
++import { htmlTemplate, raw } from '../../helper/html'
+ import { Fragment, createContext, jsx, useContext } from '../../jsx'
+ import type { FC, Context as JSXContext, JSXNode, PropsWithChildren } from '../../jsx'
+ import { renderToReadableStream } from '../../jsx/streaming'
+@@ -57,7 +57,7 @@
+         )
+       : children
+ 
+-    const body = html`${raw(docType)}${jsx(
++    const body = htmlTemplate`${raw(docType)}${jsx(
+       RequestContext.Provider,
+       { value: c },
+       currentLayout as any

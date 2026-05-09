@@ -1,0 +1,438 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/adapter/cloudflare-pages/handler.ts ./src/adapter/cloudflare-pages/handler.ts
+--- /Users/lkz/Desktop/Code/hono/src/adapter/cloudflare-pages/handler.ts	2026-05-08 15:08:09
++++ ./src/adapter/cloudflare-pages/handler.ts	2026-05-08 23:18:46
+@@ -1,6 +1,6 @@
+ import { Context } from '../../context'
+ import type { Hono } from '../../hono'
+-import { HTTPException } from '../../http-exception'
++import { HttpError } from '../../http-exception'
+ import type { BlankSchema, Env, Input, MiddlewareHandler, Schema } from '../../types'
+ 
+ // Ref: https://github.com/cloudflare/workerd/blob/main/types/defines/pages.d.ts
+@@ -89,7 +89,7 @@
+       return response
+     }
+ 
+-    if (context.error instanceof HTTPException) {
++    if (context.error instanceof HttpError) {
+       return context.error.getResponse()
+     }
+ 
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/helper/proxy/index.ts ./src/helper/proxy/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/helper/proxy/index.ts	2026-05-08 15:08:09
++++ ./src/helper/proxy/index.ts	2026-05-08 23:18:45
+@@ -3,7 +3,7 @@
+  * Proxy Helper for Hono.
+  */
+ 
+-import { HTTPException } from '../../http-exception'
++import { HttpError } from '../../http-exception'
+ import type { RequestHeader } from '../../utils/headers'
+ 
+ // https://datatracker.ietf.org/doc/html/rfc2616#section-13.5.1
+@@ -67,7 +67,7 @@
+       const invalidHeaders = headerNames.filter((h) => !ALLOWED_TOKEN_PATTERN.test(h))
+ 
+       if (invalidHeaders.length > 0) {
+-        throw new HTTPException(400, {
++        throw new HttpError(400, {
+           message: `Invalid Connection header value: ${invalidHeaders.join(', ')}`,
+         })
+       }
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/http-exception.ts ./src/http-exception.ts
+--- /Users/lkz/Desktop/Code/hono/src/http-exception.ts	2026-05-08 15:08:09
++++ ./src/http-exception.ts	2026-05-08 23:18:19
+@@ -1,12 +1,12 @@
+ /**
+  * @module
+- * This module provides the `HTTPException` class.
++ * This module provides the `HttpError` class.
+  */
+ 
+ import type { ContentfulStatusCode } from './utils/http-status'
+ 
+ /**
+- * Options for creating an `HTTPException`.
++ * Options for creating an `HttpError`.
+  * @property res - Optional response object to use.
+  * @property message - Optional custom error message.
+  * @property cause - Optional cause of the error.
+@@ -18,37 +18,37 @@
+ }
+ 
+ /**
+- * `HTTPException` must be used when a fatal error such as authentication failure occurs.
++ * `HttpError` must be used when a fatal error such as authentication failure occurs.
+  *
+  * @see {@link https://hono.dev/docs/api/exception}
+  *
+- * @param {StatusCode} status - status code of HTTPException
+- * @param {HTTPExceptionOptions} options - options of HTTPException
+- * @param {HTTPExceptionOptions["res"]} options.res - response of options of HTTPException
+- * @param {HTTPExceptionOptions["message"]} options.message - message of options of HTTPException
+- * @param {HTTPExceptionOptions["cause"]} options.cause - cause of options of HTTPException
++ * @param {StatusCode} status - status code of HttpError
++ * @param {HTTPExceptionOptions} options - options of HttpError
++ * @param {HTTPExceptionOptions["res"]} options.res - response of options of HttpError
++ * @param {HTTPExceptionOptions["message"]} options.message - message of options of HttpError
++ * @param {HTTPExceptionOptions["cause"]} options.cause - cause of options of HttpError
+  *
+  * @example
+  * ```ts
+- * import { HTTPException } from 'hono/http-exception'
++ * import { HttpError } from 'hono/http-exception'
+  *
+  * // ...
+  *
+  * app.post('/auth', async (c, next) => {
+  *   // authentication
+  *   if (authorized === false) {
+- *     throw new HTTPException(401, { message: 'Custom error message' })
++ *     throw new HttpError(401, { message: 'Custom error message' })
+  *   }
+  *   await next()
+  * })
+  * ```
+  */
+-export class HTTPException extends Error {
++export class HttpError extends Error {
+   readonly res?: Response
+   readonly status: ContentfulStatusCode
+ 
+   /**
+-   * Creates an instance of `HTTPException`.
++   * Creates an instance of `HttpError`.
+    * @param status - HTTP status code for the exception. Defaults to 500.
+    * @param options - Additional options for the exception.
+    */
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/basic-auth/index.ts ./src/middleware/basic-auth/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/basic-auth/index.ts	2026-05-08 15:08:09
++++ ./src/middleware/basic-auth/index.ts	2026-05-08 23:18:47
+@@ -4,7 +4,7 @@
+  */
+ 
+ import type { Context } from '../../context'
+-import { HTTPException } from '../../http-exception'
++import { HttpError } from '../../http-exception'
+ import type { MiddlewareHandler } from '../../types'
+ import { auth } from '../../utils/basic-auth'
+ import { timingSafeEqual } from '../../utils/buffer'
+@@ -42,7 +42,7 @@
+  * @param {string | object | MessageFunction} [options.invalidUserMessage="Unauthorized"] - The invalid user message.
+  * @param {Function} [options.onAuthSuccess] - Callback function called on successful authentication.
+  * @returns {MiddlewareHandler} The middleware handler function.
+- * @throws {HTTPException} If neither "username and password" nor "verifyUser" options are provided.
++ * @throws {HttpError} If neither "username and password" nor "verifyUser" options are provided.
+  *
+  * @example
+  * ```ts
+@@ -148,6 +148,6 @@
+               'content-type': 'application/json',
+             },
+           })
+-    throw new HTTPException(status, { res })
++    throw new HttpError(status, { res })
+   }
+ }
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/bearer-auth/index.ts ./src/middleware/bearer-auth/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/bearer-auth/index.ts	2026-05-08 15:08:09
++++ ./src/middleware/bearer-auth/index.ts	2026-05-08 23:18:47
+@@ -4,7 +4,7 @@
+  */
+ 
+ import type { Context } from '../../context'
+-import { HTTPException } from '../../http-exception'
++import { HttpError } from '../../http-exception'
+ import type { MiddlewareHandler } from '../../types'
+ import { timingSafeEqual } from '../../utils/buffer'
+ import type { ContentfulStatusCode } from '../../utils/http-status'
+@@ -85,7 +85,7 @@
+  * @param {string | object | MessageFunction} [options.invalidToken.wwwAuthenticateHeader="Bearer error=\"invalid_token\""] - The response header value for the WWW-Authenticate header when token is invalid.
+  * @returns {MiddlewareHandler} The middleware handler function.
+  * @throws {Error} If neither "token" nor "verifyToken" options are provided.
+- * @throws {HTTPException} If authentication fails, with 401 status code for missing or invalid token, or 400 status code for invalid request.
++ * @throws {HttpError} If authentication fails, with 401 status code for missing or invalid token, or 400 status code for invalid request.
+  *
+  * @example
+  * ```ts
+@@ -116,7 +116,7 @@
+   const tokenRegexp = new RegExp(`^${TOKEN_STRINGS}$`)
+   const wwwAuthenticatePrefix = prefix === '' ? '' : `${prefix} `
+ 
+-  const throwHTTPException = async (
++  const throwHttpError = async (
+     c: Context,
+     status: ContentfulStatusCode,
+     wwwAuthenticateHeader: string | object | MessageFunction,
+@@ -147,14 +147,14 @@
+               'content-type': 'application/json',
+             },
+           })
+-    throw new HTTPException(status, { res })
++    throw new HttpError(status, { res })
+   }
+ 
+   return async function bearerAuth(c, next) {
+     const headerToken = c.req.header(options.headerName || HEADER)
+     if (!headerToken) {
+       // No Authorization header
+-      await throwHTTPException(
++      await throwHttpError(
+         c,
+         401,
+         options.noAuthenticationHeader?.wwwAuthenticateHeader ||
+@@ -178,7 +178,7 @@
+ 
+       if (!tokenValue || !tokenRegexp.test(tokenValue)) {
+         // Invalid Request
+-        await throwHTTPException(
++        await throwHttpError(
+           c,
+           400,
+           options.invalidAuthenticationHeader?.wwwAuthenticateHeader ||
+@@ -203,7 +203,7 @@
+         }
+         if (!equal) {
+           // Invalid Token
+-          await throwHTTPException(
++          await throwHttpError(
+             c,
+             401,
+             options.invalidToken?.wwwAuthenticateHeader ||
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/body-limit/index.ts ./src/middleware/body-limit/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/body-limit/index.ts	2026-05-08 15:08:09
++++ ./src/middleware/body-limit/index.ts	2026-05-08 23:18:48
+@@ -4,7 +4,7 @@
+  */
+ 
+ import type { Context } from '../../context'
+-import { HTTPException } from '../../http-exception'
++import { HttpError } from '../../http-exception'
+ import type { MiddlewareHandler } from '../../types'
+ 
+ const ERROR_MESSAGE = 'Payload Too Large'
+@@ -54,7 +54,7 @@
+       const res = new Response(ERROR_MESSAGE, {
+         status: 413,
+       })
+-      throw new HTTPException(413, { res })
++      throw new HttpError(413, { res })
+     })
+   const maxSize = options.maxSize
+ 
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/csrf/index.ts ./src/middleware/csrf/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/csrf/index.ts	2026-05-08 15:08:09
++++ ./src/middleware/csrf/index.ts	2026-05-08 23:18:49
+@@ -4,7 +4,7 @@
+  */
+ 
+ import type { Context } from '../../context'
+-import { HTTPException } from '../../http-exception'
++import { HttpError } from '../../http-exception'
+ import type { MiddlewareHandler } from '../../types'
+ 
+ type IsAllowedOriginHandler = (origin: string, context: Context) => boolean | Promise<boolean>
+@@ -143,7 +143,7 @@
+       !(await isAllowedOrigin(c.req.header('origin'), c))
+     ) {
+       const res = new Response('Forbidden', { status: 403 })
+-      throw new HTTPException(403, { res })
++      throw new HttpError(403, { res })
+     }
+ 
+     await next()
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/ip-restriction/index.ts ./src/middleware/ip-restriction/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/ip-restriction/index.ts	2026-05-08 15:08:09
++++ ./src/middleware/ip-restriction/index.ts	2026-05-08 23:18:28
+@@ -5,7 +5,7 @@
+ 
+ import type { Context, MiddlewareHandler } from '../..'
+ import type { AddressType, GetConnInfo } from '../../helper/conninfo'
+-import { HTTPException } from '../../http-exception'
++import { HttpError } from '../../http-exception'
+ import {
+   convertIPv4MappedIPv6ToIPv4,
+   convertIPv4ToBinary,
+@@ -203,8 +203,8 @@
+   const denyMatcher = buildMatcher(denyList)
+   const allowMatcher = buildMatcher(allowList)
+ 
+-  const blockError = (c: Context): HTTPException =>
+-    new HTTPException(403, {
++  const blockError = (c: Context): HttpError =>
++    new HttpError(403, {
+       res: c.text('Forbidden', {
+         status: 403,
+       }),
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/jwk/jwk.ts ./src/middleware/jwk/jwk.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/jwk/jwk.ts	2026-05-08 15:08:09
++++ ./src/middleware/jwk/jwk.ts	2026-05-08 23:18:50
+@@ -5,7 +5,7 @@
+ 
+ import type { Context } from '../../context'
+ import { getCookie, getSignedCookie } from '../../helper/cookie'
+-import { HTTPException } from '../../http-exception'
++import { HttpError } from '../../http-exception'
+ import type { MiddlewareHandler } from '../../types'
+ import type { CookiePrefixOptions } from '../../utils/cookie'
+ import { Jwt } from '../../utils/jwt'
+@@ -81,7 +81,7 @@
+       const parts = credentials.split(/\s+/)
+       if (parts.length !== 2) {
+         const errDescription = 'invalid credentials structure'
+-        throw new HTTPException(401, {
++        throw new HttpError(401, {
+           message: errDescription,
+           res: unauthorizedResponse({
+             ctx,
+@@ -120,7 +120,7 @@
+         return next()
+       }
+       const errDescription = 'no authorization included in request'
+-      throw new HTTPException(401, {
++      throw new HttpError(401, {
+         message: errDescription,
+         res: unauthorizedResponse({
+           ctx,
+@@ -149,7 +149,7 @@
+       if (cause instanceof Error && cause.constructor === Error) {
+         throw cause
+       }
+-      throw new HTTPException(401, {
++      throw new HttpError(401, {
+         message: 'Unauthorized',
+         res: unauthorizedResponse({
+           ctx,
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/jwt/jwt.ts ./src/middleware/jwt/jwt.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/jwt/jwt.ts	2026-05-08 15:08:09
++++ ./src/middleware/jwt/jwt.ts	2026-05-08 23:18:50
+@@ -5,7 +5,7 @@
+ 
+ import type { Context } from '../../context'
+ import { getCookie, getSignedCookie } from '../../helper/cookie'
+-import { HTTPException } from '../../http-exception'
++import { HttpError } from '../../http-exception'
+ import type { MiddlewareHandler } from '../../types'
+ import type { CookiePrefixOptions } from '../../utils/cookie'
+ import { Jwt } from '../../utils/jwt'
+@@ -82,7 +82,7 @@
+       const parts = credentials.split(/\s+/)
+       if (parts.length !== 2) {
+         const errDescription = 'invalid credentials structure'
+-        throw new HTTPException(401, {
++        throw new HttpError(401, {
+           message: errDescription,
+           res: unauthorizedResponse({
+             ctx,
+@@ -118,7 +118,7 @@
+ 
+     if (!token) {
+       const errDescription = 'no authorization included in request'
+-      throw new HTTPException(401, {
++      throw new HttpError(401, {
+         message: errDescription,
+         res: unauthorizedResponse({
+           ctx,
+@@ -139,7 +139,7 @@
+       cause = e
+     }
+     if (!payload) {
+-      throw new HTTPException(401, {
++      throw new HttpError(401, {
+         message: 'Unauthorized',
+         res: unauthorizedResponse({
+           ctx,
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/timeout/index.ts ./src/middleware/timeout/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/timeout/index.ts	2026-05-08 15:08:09
++++ ./src/middleware/timeout/index.ts	2026-05-08 23:18:53
+@@ -4,12 +4,12 @@
+  */
+ 
+ import type { Context } from '../../context'
+-import { HTTPException } from '../../http-exception'
++import { HttpError } from '../../http-exception'
+ import type { MiddlewareHandler } from '../../types'
+ 
+-export type HTTPExceptionFunction = (context: Context) => HTTPException
++export type HttpErrorFunction = (context: Context) => HttpError
+ 
+-const defaultTimeoutException = new HTTPException(504, {
++const defaultTimeoutException = new HttpError(504, {
+   message: 'Gateway Timeout',
+ })
+ 
+@@ -17,7 +17,7 @@
+  * Timeout Middleware for Hono.
+  *
+  * @param {number} duration - The timeout duration in milliseconds.
+- * @param {HTTPExceptionFunction | HTTPException} [exception=defaultTimeoutException] - The exception to throw when the timeout occurs. Can be a function that returns an HTTPException or an HTTPException object.
++ * @param {HttpErrorFunction | HttpError} [exception=defaultTimeoutException] - The exception to throw when the timeout occurs. Can be a function that returns an HttpError or an HttpError object.
+  * @returns {MiddlewareHandler} The middleware handler function.
+  *
+  * @example
+@@ -37,7 +37,7 @@
+  */
+ export const timeout = (
+   duration: number,
+-  exception: HTTPExceptionFunction | HTTPException = defaultTimeoutException
++  exception: HttpErrorFunction | HttpError = defaultTimeoutException
+ ): MiddlewareHandler => {
+   return async function timeout(context, next) {
+     let timer: number | undefined
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/request.ts ./src/request.ts
+--- /Users/lkz/Desktop/Code/hono/src/request.ts	2026-05-08 15:08:09
++++ ./src/request.ts	2026-05-08 23:18:24
+@@ -1,5 +1,5 @@
+ /* eslint-disable @typescript-eslint/no-explicit-any */
+-import { HTTPException } from './http-exception'
++import { HttpError } from './http-exception'
+ import { GET_MATCH_RESULT } from './request/constants'
+ import type { Result } from './router'
+ import type {
+@@ -439,7 +439,7 @@
+  *
+  * @param req - The HonoRequest object to clone
+  * @returns A Promise that resolves to a new Request object with the same properties
+- * @throws {HTTPException} If the request body was consumed directly via `req.raw`
++ * @throws {HttpError} If the request body was consumed directly via `req.raw`
+  *   without using HonoRequest methods (e.g., `req.json()`, `req.text()`), making it
+  *   impossible to reconstruct the body from cache
+  *
+@@ -464,7 +464,7 @@
+ 
+   const cacheKey = (Object.keys(req.bodyCache) as Array<keyof Body>)[0]
+   if (!cacheKey) {
+-    throw new HTTPException(500, {
++    throw new HttpError(500, {
+       message:
+         'Cannot clone request: body was already consumed and not cached. Please use HonoRequest methods (e.g., req.json(), req.text()) instead of consuming req.raw directly.',
+     })
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/validator/validator.ts ./src/validator/validator.ts
+--- /Users/lkz/Desktop/Code/hono/src/validator/validator.ts	2026-05-08 15:08:09
++++ ./src/validator/validator.ts	2026-05-08 23:18:27
+@@ -1,6 +1,6 @@
+ import type { Context } from '../context'
+ import { getCookie } from '../helper/cookie'
+-import { HTTPException } from '../http-exception'
++import { HttpError } from '../http-exception'
+ import type { Env, MiddlewareHandler, TypedResponse, ValidationTargets, FormValue } from '../types'
+ import type { BodyData } from '../utils/body'
+ import { bufferToFormData } from '../utils/buffer'
+@@ -99,7 +99,7 @@
+           value = await c.req.json()
+         } catch {
+           const message = 'Malformed JSON in request body'
+-          throw new HTTPException(400, { message })
++          throw new HttpError(400, { message })
+         }
+         break
+       case 'form': {
+@@ -122,7 +122,7 @@
+           } catch (e) {
+             let message = 'Malformed FormData request.'
+             message += e instanceof Error ? ` ${e.message}` : ` ${String(e)}`
+-            throw new HTTPException(400, { message })
++            throw new HttpError(400, { message })
+           }
+         }
+ 

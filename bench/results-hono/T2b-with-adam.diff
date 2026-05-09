@@ -1,0 +1,13 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/request-time/index.ts ./src/middleware/request-time/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/request-time/index.ts	1969-12-31 21:00:00
++++ ./src/middleware/request-time/index.ts	2026-05-08 22:19:23
+@@ -0,0 +1,9 @@
++import type { MiddlewareHandler } from '../../types'
++
++export const requestTime = (): MiddlewareHandler => {
++  return async (c, next) => {
++    const start = Date.now()
++    await next()
++    c.res.headers.set('X-Response-Time-Ms', String(Date.now() - start))
++  }
++}

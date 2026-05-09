@@ -1,0 +1,22 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/context.ts ./src/context.ts
+--- /Users/lkz/Desktop/Code/hono/src/context.ts	2026-05-08 15:08:09
++++ ./src/context.ts	2026-05-08 22:26:19
+@@ -720,6 +720,18 @@
+     ) /* eslint-disable @typescript-eslint/no-explicit-any */ as any
+   }
+ 
++  problem = (detail: {
++    type?: string
++    title: string
++    status: number
++    detail?: string
++  }): Response =>
++    this.#newResponse(
++      JSON.stringify(detail),
++      detail.status as StatusCode,
++      { 'Content-Type': 'application/problem+json' }
++    ) as Response
++
+   html: HTMLRespond = (
+     html: string | Promise<string>,
+     arg?: ContentfulStatusCode | ResponseOrInit<ContentfulStatusCode>,

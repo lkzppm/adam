@@ -1,0 +1,150 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/adapter/aws-lambda/handler.ts ./src/adapter/aws-lambda/handler.ts
+--- /Users/lkz/Desktop/Code/hono/src/adapter/aws-lambda/handler.ts	2026-05-08 15:08:09
++++ ./src/adapter/aws-lambda/handler.ts	2026-05-08 23:35:53
+@@ -1,6 +1,6 @@
+ import type { Hono } from '../../hono'
+ import type { Env, Schema } from '../../types'
+-import { decodeBase64, encodeBase64 } from '../../utils/encode'
++import { b64Decode, b64Encode } from '../../utils/encode'
+ import type {
+   ALBRequestContext,
+   ApiGatewayRequestContext,
+@@ -331,7 +331,7 @@
+     }
+ 
+     if (event.body) {
+-      requestInit.body = event.isBase64Encoded ? decodeBase64(event.body) : event.body
++      requestInit.body = event.isBase64Encoded ? b64Decode(event.body) : event.body
+     }
+ 
+     return new Request(url, requestInit)
+@@ -352,7 +352,7 @@
+       isBase64Encoded = isContentEncodingBinary(contentEncoding)
+     }
+ 
+-    const body = isBase64Encoded ? encodeBase64(await res.arrayBuffer()) : await res.text()
++    const body = isBase64Encoded ? b64Encode(await res.arrayBuffer()) : await res.text()
+ 
+     const result: APIGatewayProxyResult = {
+       body: body,
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/adapter/lambda-edge/handler.ts ./src/adapter/lambda-edge/handler.ts
+--- /Users/lkz/Desktop/Code/hono/src/adapter/lambda-edge/handler.ts	2026-05-08 15:08:09
++++ ./src/adapter/lambda-edge/handler.ts	2026-05-08 23:35:51
+@@ -1,7 +1,7 @@
+ import crypto from 'node:crypto'
+ import type { Hono } from '../../hono'
+ 
+-import { decodeBase64, encodeBase64 } from '../../utils/encode'
++import { b64Decode, b64Encode } from '../../utils/encode'
+ 
+ // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ // @ts-ignore
+@@ -139,7 +139,7 @@
+ 
+ const createResult = async (res: Response): Promise<CloudFrontResult> => {
+   const isBase64Encoded = isContentTypeBinary(res.headers.get('content-type') || '')
+-  const body = isBase64Encoded ? encodeBase64(await res.arrayBuffer()) : await res.text()
++  const body = isBase64Encoded ? b64Encode(await res.arrayBuffer()) : await res.text()
+ 
+   return {
+     status: res.status.toString(),
+@@ -184,7 +184,7 @@
+     return undefined
+   }
+   if (requestBody.encoding === 'base64') {
+-    return decodeBase64(requestBody.data)
++    return b64Decode(requestBody.data)
+   }
+   return requestBody.data
+ }
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/middleware/secure-headers/secure-headers.ts ./src/middleware/secure-headers/secure-headers.ts
+--- /Users/lkz/Desktop/Code/hono/src/middleware/secure-headers/secure-headers.ts	2026-05-08 15:08:09
++++ ./src/middleware/secure-headers/secure-headers.ts	2026-05-08 23:35:54
+@@ -5,7 +5,7 @@
+ 
+ import type { Context } from '../../context'
+ import type { MiddlewareHandler } from '../../types'
+-import { encodeBase64 } from '../../utils/encode'
++import { b64Encode } from '../../utils/encode'
+ import type { PermissionsPolicyDirective } from './permissions-policy'
+ 
+ export type SecureHeadersVariables = {
+@@ -131,7 +131,7 @@
+ const generateNonce = () => {
+   const arrayBuffer = new Uint8Array(16)
+   crypto.getRandomValues(arrayBuffer)
+-  return encodeBase64(arrayBuffer.buffer)
++  return b64Encode(arrayBuffer.buffer)
+ }
+ 
+ export const NONCE: ContentSecurityPolicyOptionHandler = (ctx) => {
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/utils/basic-auth.ts ./src/utils/basic-auth.ts
+--- /Users/lkz/Desktop/Code/hono/src/utils/basic-auth.ts	2026-05-08 15:08:09
++++ ./src/utils/basic-auth.ts	2026-05-08 23:35:55
+@@ -1,4 +1,4 @@
+-import { decodeBase64 } from './encode'
++import { b64Decode } from './encode'
+ 
+ const CREDENTIALS_REGEXP = /^ *(?:[Bb][Aa][Ss][Ii][Cc]) +([A-Za-z0-9._~+/-]+=*) *$/
+ const USER_PASS_REGEXP = /^([^:]*):(.*)$/
+@@ -15,7 +15,7 @@
+   let userPass = undefined
+   // If an invalid string is passed to atob(), it throws a `DOMException`.
+   try {
+-    userPass = USER_PASS_REGEXP.exec(utf8Decoder.decode(decodeBase64(match[1])))
++    userPass = USER_PASS_REGEXP.exec(utf8Decoder.decode(b64Decode(match[1])))
+   } catch {} // Do nothing
+ 
+   if (!userPass) {
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/utils/encode.ts ./src/utils/encode.ts
+--- /Users/lkz/Desktop/Code/hono/src/utils/encode.ts	2026-05-08 15:08:09
++++ ./src/utils/encode.ts	2026-05-08 23:35:39
+@@ -4,15 +4,15 @@
+  */
+ 
+ export const decodeBase64Url = (str: string): Uint8Array<ArrayBuffer> => {
+-  return decodeBase64(str.replace(/_|-/g, (m) => ({ _: '/', '-': '+' })[m] ?? m))
++  return b64Decode(str.replace(/_|-/g, (m) => ({ _: '/', '-': '+' })[m] ?? m))
+ }
+ 
+ export const encodeBase64Url = (buf: ArrayBufferLike): string =>
+-  encodeBase64(buf).replace(/\/|\+/g, (m) => ({ '/': '_', '+': '-' })[m] ?? m)
++  b64Encode(buf).replace(/\/|\+/g, (m) => ({ '/': '_', '+': '-' })[m] ?? m)
+ 
+ // This approach is written in MDN.
+ // btoa does not support utf-8 characters. So we need a little bit hack.
+-export const encodeBase64 = (buf: ArrayBufferLike): string => {
++export const b64Encode = (buf: ArrayBufferLike): string => {
+   let binary = ''
+   const bytes = new Uint8Array(buf)
+   for (let i = 0, len = bytes.length; i < len; i++) {
+@@ -22,7 +22,7 @@
+ }
+ 
+ // atob does not support utf-8 characters. So we need a little bit hack.
+-export const decodeBase64 = (str: string): Uint8Array<ArrayBuffer> => {
++export const b64Decode = (str: string): Uint8Array<ArrayBuffer> => {
+   const binary = atob(str)
+   const bytes = new Uint8Array<ArrayBuffer>(new ArrayBuffer(binary.length))
+   const half = binary.length / 2
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/utils/jwt/jws.ts ./src/utils/jwt/jws.ts
+--- /Users/lkz/Desktop/Code/hono/src/utils/jwt/jws.ts	2026-05-08 15:08:09
++++ ./src/utils/jwt/jws.ts	2026-05-08 23:35:56
+@@ -5,7 +5,7 @@
+  */
+ 
+ import { getRuntimeKey } from '../../helper/adapter'
+-import { decodeBase64 } from '../encode'
++import { b64Decode } from '../encode'
+ import type { SignatureAlgorithm } from './jwa'
+ import { CryptoKeyUsage, JwtAlgorithmNotImplemented } from './types'
+ import { utf8Encoder } from './utf8'
+@@ -48,7 +48,7 @@
+ }
+ 
+ function pemToBinary(pem: string): Uint8Array<ArrayBuffer> {
+-  return decodeBase64(pem.replace(/-+(BEGIN|END).*?-+/g, '').replace(/\s/g, ''))
++  return b64Decode(pem.replace(/-+(BEGIN|END).*?-+/g, '').replace(/\s/g, ''))
+ }
+ 
+ async function importPrivateKey(key: SignatureKey, alg: KeyImporterAlgorithm): Promise<CryptoKey> {

@@ -1,0 +1,20 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/helper/request-info/index.ts ./src/helper/request-info/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/helper/request-info/index.ts	1969-12-31 21:00:00
++++ ./src/helper/request-info/index.ts	2026-05-08 22:23:37
+@@ -0,0 +1,16 @@
++import type { Context } from '../../context'
++
++export const getRequestInfo = (
++  c: Context
++): { method: string; path: string; query: Record<string, string>; headers: Record<string, string> } => {
++  const headers: Record<string, string> = {}
++  c.req.raw.headers.forEach((value, key) => {
++    headers[key.toLowerCase()] = value
++  })
++  return {
++    method: c.req.method,
++    path: c.req.path,
++    query: c.req.query(),
++    headers,
++  }
++}

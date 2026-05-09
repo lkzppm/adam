@@ -1,0 +1,94 @@
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/adapter/bun/websocket.ts ./src/adapter/bun/websocket.ts
+--- /Users/lkz/Desktop/Code/hono/src/adapter/bun/websocket.ts	2026-05-08 15:08:09
++++ ./src/adapter/bun/websocket.ts	2026-05-08 23:33:47
+@@ -1,5 +1,5 @@
+ import type { UpgradeWebSocket, WSEvents, WSMessageReceive } from '../../helper/websocket'
+-import { createWSMessageEvent, defineWebSocketHelper, WSContext } from '../../helper/websocket'
++import { createWSMessageEvent, defineWebSocketHelper, WebSocketContext } from '../../helper/websocket'
+ import { getBunServer } from './server'
+ 
+ /**
+@@ -30,8 +30,8 @@
+ /**
+  * @internal
+  */
+-export const createWSContext = (ws: BunServerWebSocket<BunWebSocketData>): WSContext => {
+-  return new WSContext({
++export const createWSContext = (ws: BunServerWebSocket<BunWebSocketData>): WebSocketContext => {
++  return new WebSocketContext({
+     send: (source, options) => {
+       ws.send(source, options?.compress)
+     },
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/adapter/cloudflare-workers/websocket.ts ./src/adapter/cloudflare-workers/websocket.ts
+--- /Users/lkz/Desktop/Code/hono/src/adapter/cloudflare-workers/websocket.ts	2026-05-08 15:08:09
++++ ./src/adapter/cloudflare-workers/websocket.ts	2026-05-08 23:33:45
+@@ -1,4 +1,4 @@
+-import { WSContext, defineWebSocketHelper } from '../../helper/websocket'
++import { WebSocketContext, defineWebSocketHelper } from '../../helper/websocket'
+ import type { UpgradeWebSocket, WSEvents, WSReadyState } from '../../helper/websocket'
+ 
+ // Based on https://github.com/honojs/hono/issues/1153#issuecomment-1767321332
+@@ -18,7 +18,7 @@
+   const client: WebSocket = webSocketPair[0]
+   const server: WebSocket = webSocketPair[1]
+ 
+-  const wsContext = new WSContext<WebSocket>({
++  const wsContext = new WebSocketContext<WebSocket>({
+     close: (code, reason) => server.close(code, reason),
+     get protocol() {
+       return server.protocol
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/adapter/deno/websocket.ts ./src/adapter/deno/websocket.ts
+--- /Users/lkz/Desktop/Code/hono/src/adapter/deno/websocket.ts	2026-05-08 15:08:09
++++ ./src/adapter/deno/websocket.ts	2026-05-08 23:33:48
+@@ -1,5 +1,5 @@
+ import type { UpgradeWebSocket, WSReadyState } from '../../helper/websocket'
+-import { WSContext, defineWebSocketHelper } from '../../helper/websocket'
++import { WebSocketContext, defineWebSocketHelper } from '../../helper/websocket'
+ 
+ export const upgradeWebSocket: UpgradeWebSocket<WebSocket, Deno.UpgradeWebSocketOptions> =
+   defineWebSocketHelper(async (c, events, options) => {
+@@ -9,7 +9,7 @@
+ 
+     const { response, socket } = Deno.upgradeWebSocket(c.req.raw, options ?? {})
+ 
+-    const wsContext: WSContext<WebSocket> = new WSContext({
++    const wsContext: WebSocketContext<WebSocket> = new WebSocketContext({
+       close: (code, reason) => socket.close(code, reason),
+       get protocol() {
+         return socket.protocol
+diff -ruN --ex /Users/lkz/Desktop/Code/hono/src/helper/websocket/index.ts ./src/helper/websocket/index.ts
+--- /Users/lkz/Desktop/Code/hono/src/helper/websocket/index.ts	2026-05-08 15:08:09
++++ ./src/helper/websocket/index.ts	2026-05-08 23:33:45
+@@ -12,10 +12,10 @@
+  * WebSocket Event Listeners type
+  */
+ export interface WSEvents<T = unknown> {
+-  onOpen?: (evt: Event, ws: WSContext<T>) => void
+-  onMessage?: (evt: MessageEvent<WSMessageReceive>, ws: WSContext<T>) => void
+-  onClose?: (evt: CloseEvent, ws: WSContext<T>) => void
+-  onError?: (evt: Event, ws: WSContext<T>) => void
++  onOpen?: (evt: Event, ws: WebSocketContext<T>) => void
++  onMessage?: (evt: MessageEvent<WSMessageReceive>, ws: WebSocketContext<T>) => void
++  onClose?: (evt: CloseEvent, ws: WebSocketContext<T>) => void
++  onError?: (evt: Event, ws: WebSocketContext<T>) => void
+ }
+ 
+ /**
+@@ -45,7 +45,7 @@
+ export type WSReadyState = 0 | 1 | 2 | 3
+ 
+ /**
+- * An argument for WSContext class
++ * An argument for WebSocketContext class
+  */
+ export interface WSContextInit<T = unknown> {
+   send(data: string | ArrayBuffer | Uint8Array, options: SendOptions): void
+@@ -67,7 +67,7 @@
+ /**
+  * A context for controlling WebSockets
+  */
+-export class WSContext<T = unknown> {
++export class WebSocketContext<T = unknown> {
+   #init: WSContextInit<T>
+   constructor(init: WSContextInit<T>) {
+     this.#init = init

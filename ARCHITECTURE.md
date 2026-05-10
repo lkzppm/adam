@@ -31,7 +31,15 @@ adam/
 ├── scripts/                                   # deterministic infra called by skills
 │   ├── setup-graph.sh                         # Phase 0 of /adam:setup
 │   ├── strip-gitnexus-block.sh                # idempotent CLAUDE.md cleanup
-│   └── smoke-test.sh                          # standalone MCP smoke test
+│   ├── smoke-test.sh                          # standalone MCP smoke test
+│   └── template/                              # spec template selection
+│       └── select-seed.sh                     # detect stack → return seed path
+│
+├── templates/
+│   ├── spec-rules/*.md                        # Phase 1 deterministic copy
+│   └── specs/                                 # stack-specific seed templates
+│       ├── nextjs.md  ·  hono.md
+│       └── fastapi.md ·  django.md
 │
 ├── bench/                                     # the comparison vs portifolio (n=22 paired tasks)
 └── public/AdamBanner.png

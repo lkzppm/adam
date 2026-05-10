@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Smoke-test both MCP servers via JSON-RPC over stdio.
-# Use: ./scripts/smoke-test.sh [project-root-to-lint]
+# Use: ./scripts/tests/smoke-test.sh [project-root-to-lint]
 
 set -euo pipefail
 
-PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PLUGIN_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 LINT_TARGET="${1:-$PLUGIN_ROOT}"
 
 run_server() {

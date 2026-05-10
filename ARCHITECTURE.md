@@ -29,19 +29,21 @@ adam/
 │   └── token-count/server.ts                  # offline cl100k_base counter
 │
 ├── scripts/                                   # deterministic infra called by skills
-│   ├── setup-graph.sh                         # Phase 0 of /adam:setup
-│   ├── write-spec-rules.sh                    # Phase 1: copy templates/spec-rules/
-│   ├── strip-gitnexus-block.sh                # idempotent CLAUDE.md cleanup
-│   ├── smoke-test.sh                          # standalone MCP smoke test
 │   ├── tools/                                 # gitnexus-driven helpers
+│   │   ├── setup-graph.sh                     # Phase 0 of /adam:setup
 │   │   ├── spec-preflight.sh                  # JSON briefing for spec-create
 │   │   └── check-anchors.sh                   # drift fast-path for spec-update
-│   ├── template/                              # spec template selection
+│   ├── template/                              # template / seed selection
+│   │   ├── write-spec-rules.sh                # Phase 1: copy templates/spec-rules/
 │   │   └── select-seed.sh                     # detect stack → return seed path
+│   ├── utils/                                 # misc utilities
+│   │   └── strip-gitnexus-block.sh            # idempotent CLAUDE.md cleanup
 │   ├── validators/                            # spec linting
 │   │   └── spec-graph-xref.sh                 # disk paths + graph symbols
-│   └── bench/                                 # bench harness wrappers
-│       └── regression.sh                      # 6-task subset vs baseline.json
+│   ├── bench/                                 # bench harness wrappers
+│   │   └── regression.sh                      # 6-task subset vs baseline.json
+│   └── tests/                                 # standalone smoke checks
+│       └── smoke-test.sh                      # JSON-RPC smoke vs both MCPs
 │
 ├── templates/
 │   ├── spec-rules/*.md                        # Phase 1 deterministic copy
@@ -59,8 +61,8 @@ Eight phases, strictly ordered. The full prose lives in [`skills/setup/SKILL.md`
 
 | P | What | Where |
 |---|---|---|
-| 0 | `gitnexus analyze` (hard prereq — cuts the run if missing) | `scripts/setup-graph.sh` |
-| 1 | `spec/rules/` deterministic copy | `scripts/write-spec-rules.sh` |
+| 0 | `gitnexus analyze` (hard prereq — cuts the run if missing) | `scripts/tools/setup-graph.sh` |
+| 1 | `spec/rules/` deterministic copy | `scripts/template/write-spec-rules.sh` |
 | 2 | spec scaffolding — `overview` + `project/` + `concepts/` + `INDEX.md` (no `CLAUDE.md` yet) | `agents/adam.md` (scaffold-only) |
 | 3 | three per-class `AskUserQuestion` menus — hooks, then subagents, then skills | `skills/setup/SKILL.md` |
 | 4 | create only the items the user picked | `agents/adam.md` (claude-add) |
@@ -96,7 +98,7 @@ Bundled MCPs and the PostToolUse hook run from `${CLAUDE_PLUGIN_ROOT}/node_modul
 
 ## Skills design — scripts over LLM-interpreted shell
 
-Anything that's a deterministic sequence of shell commands lives in `scripts/`, not in the skill's prose. The setup skill calls `scripts/setup-graph.sh` and reads the JSON it returns. `spec-update` calls `scripts/strip-gitnexus-block.sh` as a pre-step. This keeps the LLM out of the parts of the workflow that don't need judgment, which is the whole point of having a tool boundary in the first place.
+Anything that's a deterministic sequence of shell commands lives in `scripts/`, not in the skill's prose. The setup skill calls `scripts/tools/setup-graph.sh` and reads the JSON it returns. `spec-update` calls `scripts/utils/strip-gitnexus-block.sh` as a pre-step. This keeps the LLM out of the parts of the workflow that don't need judgment, which is the whole point of having a tool boundary in the first place. Scripts are segregated by purpose under `scripts/<class>/` (Material Icon Theme folder names: `tools`, `template`, `utils`, `validators`, `bench`, `tests`) so the role of each script is visible at a glance from the layout block.
 
 When a skill *does* need the agent (drafting spec content, naming sub-agents, choosing which subsystems matter), the skill delegates to the `adam` sub-agent with a focused prompt. The agent never runs `gitnexus analyze` or edits `.mcp.json` itself.
 

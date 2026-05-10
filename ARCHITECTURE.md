@@ -34,7 +34,8 @@ adam/
 │   ├── strip-gitnexus-block.sh                # idempotent CLAUDE.md cleanup
 │   ├── smoke-test.sh                          # standalone MCP smoke test
 │   └── tools/                                 # gitnexus-driven helpers
-│       └── spec-preflight.sh                  # JSON briefing for spec-create
+│       ├── spec-preflight.sh                  # JSON briefing for spec-create
+│       └── check-anchors.sh                   # drift fast-path for spec-update
 │
 ├── bench/                                     # the comparison vs portifolio (n=22 paired tasks)
 └── public/AdamBanner.png

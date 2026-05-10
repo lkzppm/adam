@@ -131,10 +131,15 @@ name: <topic>
 description: <one-line summary used by spec-create/update for relevance>
 tags: [<a few>]
 updated: YYYY-MM-DD
+anchors:
+  - <file>:<symbol>                # 1 colon: file + symbol, gitnexus disambiguates
+  - <Kind>:<file>:<symbol>         # 2 colons: full UID, zero-ambiguity
 ---
 ```
 
 No `agents:` lists. No baked-in token counts (they're refreshed live in CLAUDE.md and INDEX).
+
+The `anchors:` block list is the **machine-readable companion** to the spec's markdown anchors table. It's what `scripts/tools/check-anchors.sh` parses to fast-path drift detection in `/adam:spec-update`: every entry is sent to GitNexus, and the spec is only flagged stale if at least one anchor no longer resolves. Specs without an `anchors:` frontmatter block fall back to the legacy "agent re-reads everything" path. Add an entry per top-level symbol the spec is *about*, not for every name it mentions in passing — the goal is a small, stable set that drives drift signal.
 
 If you're tempted to write more than ~5000 tokens in one spec, split it.
 
@@ -232,13 +237,16 @@ Invoked by the `claude-add` skill (or by the `setup` skill for each accepted sug
 
 ## Algorithm — drift refresh
 
-1. Read `CLAUDE.md` and every `spec/*.md`. Run `git log --oneline -30`.
-2. For each spec, open the code it claims to describe. Verify file paths exist, function/class names match, constants match. The code wins disputes.
-3. Rewrite stale specs in place. Delete specs whose subject has been removed from the code.
-4. If two specs describe the same thing (overlap > ~50%), merge into one.
-5. Refresh `spec/INDEX.md` and the table in `CLAUDE.md`. Re-count tokens.
-6. Run `spec-lint`. Fix what it reports.
-7. Report: rewrote / deleted / left-alone, plus any drift you intentionally chose not to fix (with reason).
+The parent `spec-update` skill runs `scripts/tools/check-anchors.sh` first and passes you a JSON briefing partitioning specs into `drifted` / `clean` / `unchecked`. Use it to scope work — don't re-validate `clean` specs, and only do the full code re-read for `unchecked` specs (which have no `anchors:` frontmatter yet).
+
+1. Read `CLAUDE.md`. For every spec mentioned in `drifted` and `unchecked`, read the spec body. Run `git log --oneline -30` for recent-intent context.
+2. For each `drifted` spec, the briefing's `missing[]` list names the broken anchors — open just those code paths first, then expand. Fix each missing anchor by either (a) updating it to the symbol's new file/name, or (b) removing the spec section that depended on it.
+3. For each `unchecked` spec, do the full re-read against the code, **and add an `anchors:` frontmatter block list** as you rewrite — that way the next run fast-paths it.
+4. Rewrite stale prose in place. Delete specs whose subject has been removed from the code entirely.
+5. If two specs describe the same thing (overlap > ~50%), merge into one.
+6. Refresh `spec/INDEX.md` and the table in `CLAUDE.md`. Re-count tokens.
+7. Run `spec-lint`. Fix what it reports.
+8. Report: rewrote / deleted / left-alone, plus any drift you intentionally chose not to fix (with reason).
 
 ## Algorithm — add a spec
 

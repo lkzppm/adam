@@ -38,8 +38,10 @@ adam/
 │   │   └── check-anchors.sh                   # drift fast-path for spec-update
 │   ├── template/                              # spec template selection
 │   │   └── select-seed.sh                     # detect stack → return seed path
-│   └── validators/                            # spec linting
-│       └── spec-graph-xref.sh                 # disk paths + graph symbols
+│   ├── validators/                            # spec linting
+│   │   └── spec-graph-xref.sh                 # disk paths + graph symbols
+│   └── bench/                                 # bench harness wrappers
+│       └── regression.sh                      # 6-task subset vs baseline.json
 │
 ├── templates/
 │   ├── spec-rules/*.md                        # Phase 1 deterministic copy

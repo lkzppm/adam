@@ -8,7 +8,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "bench:regression": "bash scripts/bench/regression.sh",
+    "bench:regression:check": "bash scripts/bench/regression.sh --check"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

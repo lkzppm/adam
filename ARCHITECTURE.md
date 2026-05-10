@@ -30,8 +30,11 @@ adam/
 │
 ├── scripts/                                   # deterministic infra called by skills
 │   ├── setup-graph.sh                         # Phase 0 of /adam:setup
+│   ├── write-spec-rules.sh                    # Phase 1: copy templates/spec-rules/
 │   ├── strip-gitnexus-block.sh                # idempotent CLAUDE.md cleanup
-│   └── smoke-test.sh                          # standalone MCP smoke test
+│   ├── smoke-test.sh                          # standalone MCP smoke test
+│   └── tools/                                 # gitnexus-driven helpers
+│       └── spec-preflight.sh                  # JSON briefing for spec-create
 │
 ├── bench/                                     # the comparison vs portifolio (n=22 paired tasks)
 └── public/AdamBanner.png

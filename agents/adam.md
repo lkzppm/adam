@@ -243,11 +243,12 @@ Invoked by the `claude-add` skill (or by the `setup` skill for each accepted sug
 ## Algorithm — add a spec
 
 1. Take the requested topic. Confirm it's not already covered (by description match, not just filename).
-2. Open the relevant code so the spec is grounded in real symbols/paths.
-3. Write `spec/<topic>.md` with the standard frontmatter and substantive content.
-4. Add a row to `spec/INDEX.md` and the CLAUDE.md table. Pick the right reading-order position (subsystem specs after `overview.md`, integration specs after subsystems).
-5. Run `spec-lint` and `token-count`. Fix issues.
-6. Report.
+2. If the parent skill (`spec-create`) supplied a **GitNexus preflight briefing** in the prompt — a JSON block with `candidates[]`, `summary`, `search_processes` — treat it as canonical. Do **not** re-grep symbols already resolved there; do **not** call `gitnexus_context` on names already covered. The briefing's `candidates[].file:line` triples are the seed for the spec's anchors block.
+3. Open the relevant code so the spec is grounded in real symbols/paths. Use the briefing's `primary_files` as the read list; expand only if the briefing is empty.
+4. Write `spec/<topic>.md` with the standard frontmatter and substantive content.
+5. Add a row to `spec/INDEX.md` and the CLAUDE.md table. Pick the right reading-order position (subsystem specs after `overview.md`, integration specs after subsystems).
+6. Run `spec-lint` and `token-count`. Fix issues.
+7. Report.
 
 ## Guardrails
 

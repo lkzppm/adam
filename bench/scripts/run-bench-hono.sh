@@ -70,7 +70,7 @@ apply_adam_fixture() {
   # CLAUDE.md and AGENTS.md (both files get auto-loaded by Claude Code), so
   # strip them, then write our canonical CLAUDE.md fixture on top.
   ( cd "$dir" && gitnexus analyze --skip-git >/dev/null 2>&1 )
-  bash "$ROOT/scripts/strip-gitnexus-block.sh" "$dir" >/dev/null 2>&1 || true
+  bash "$ROOT/scripts/utils/strip-gitnexus-block.sh" "$dir" >/dev/null 2>&1 || true
   rm -f "$dir/AGENTS.md"
   cp "$CANONICAL_CLAUDE_MD" "$dir/CLAUDE.md"
 }

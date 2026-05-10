@@ -83,9 +83,9 @@ spec/
 ├── INDEX.md                      # top-level index (one row per spec)
 ├── overview.md                   # high-level "what is this project"
 ├── rules/                        # adam workflow rules — IDENTICAL across projects
-│   ├── refactor.md               # written by scripts/write-spec-rules.sh
-│   ├── additive.md               # written by scripts/write-spec-rules.sh
-│   └── orient.md                 # written by scripts/write-spec-rules.sh
+│   ├── refactor.md               # written by scripts/template/write-spec-rules.sh
+│   ├── additive.md               # written by scripts/template/write-spec-rules.sh
+│   └── orient.md                 # written by scripts/template/write-spec-rules.sh
 ├── project/                      # project-specific conventions
 │   ├── frontend.md               # frontend style / component patterns (if applicable)
 │   ├── backend.md                # backend layering / service patterns (if applicable)
@@ -101,7 +101,7 @@ spec/
 These propagate the bench-validated workflow behavior. **Don't generate them yourself** — call the deterministic script:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/write-spec-rules.sh "$PWD"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/template/write-spec-rules.sh "$PWD"
 ```
 
 The script copies `templates/spec-rules/*.md` from the plugin into `<project>/spec/rules/`. Runs idempotently. Currently three files: `refactor.md` (cross-file refactor recipe), `additive.md` (adding new functionality), `orient.md` (read-only Q&A).
@@ -200,7 +200,7 @@ Run these in parallel before writing anything:
 The parent `setup` skill dispatches you for spec scaffolding **only**. Do **NOT** write `CLAUDE.md` (that's the finalize mode), do **NOT** write to `.claude/` (that's interactive in P3+P4).
 
 1. Run detection (above).
-2. **`spec/rules/`** — *do not write yourself*. The parent `setup` skill called `scripts/write-spec-rules.sh` deterministically in P1. Trust it ran. Files: `refactor.md`, `additive.md`, `orient.md`.
+2. **`spec/rules/`** — *do not write yourself*. The parent `setup` skill called `scripts/template/write-spec-rules.sh` deterministically in P1. Trust it ran. Files: `refactor.md`, `additive.md`, `orient.md`.
 3. **`spec/project/`** — generate from detection. One file per convention area you can describe substantively: `frontend.md`, `backend.md`, `stack.md`, plus 0–2 area-specific (`infra.md`, `data-pipeline.md`, etc.). Cap ~5. Skip an area if you don't have enough signal to write something concrete.
 4. **`spec/concepts/`** — generate from detection. One file per non-trivial subsystem worth a deep walkthrough. Always include the **anchors block** (see structure section). If the subsystem has a recurring edit shape, include a `## How to add a new <thing>` recipe with a complete drop-in template — not a schematic. Cap ~6. Skip if the subsystem is trivial.
 5. **`spec/overview.md`** — high-level "what is this project". One paragraph + a runtime-shape diagram or paragraph if applicable. Don't repeat what's in `project/` or `concepts/`; this is a map, not a walkthrough.

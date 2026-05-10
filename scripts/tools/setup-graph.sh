@@ -51,7 +51,7 @@ fi
 # 3. Strip the auto-injected boilerplate from CLAUDE.md.
 STRIPPED="false"
 if [ -f "$ROOT/CLAUDE.md" ] && grep -q '<!-- gitnexus:start -->' "$ROOT/CLAUDE.md"; then
-  bash "$SCRIPT_DIR/strip-gitnexus-block.sh" "$ROOT" >/dev/null 2>&1 || true
+  bash "$SCRIPT_DIR/../utils/strip-gitnexus-block.sh" "$ROOT" >/dev/null 2>&1 || true
   STRIPPED="true"
 fi
 

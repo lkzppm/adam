@@ -22,7 +22,7 @@ Reconcile `spec/*.md` and `CLAUDE.md` against the current state of the code.
 `gitnexus analyze` re-injects a `<!-- gitnexus:start -->...<!-- gitnexus:end -->` block into `CLAUDE.md` on every fresh run. Before delegating to the agent, run the strip script — idempotent and silent when the markers aren't present:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/strip-gitnexus-block.sh "$PWD"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/utils/strip-gitnexus-block.sh "$PWD"
 ```
 
 This keeps the CLAUDE.md the agent reads in sync with what adam actually authors.

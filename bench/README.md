@@ -124,7 +124,7 @@ cd /Users/lkz/Desktop/Code/hono && bun install
 
 # 2. Index + clean the auto-injected blocks
 gitnexus analyze
-bash /Users/lkz/Desktop/Code/adam/scripts/strip-gitnexus-block.sh /Users/lkz/Desktop/Code/hono
+bash /Users/lkz/Desktop/Code/adam/scripts/utils/strip-gitnexus-block.sh /Users/lkz/Desktop/Code/hono
 
 # 3. Run the full bench (60 paired claude -p invocations)
 bash /Users/lkz/Desktop/Code/adam/bench/scripts/run-bench-hono.sh

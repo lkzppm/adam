@@ -33,9 +33,17 @@ adam/
 │   ├── write-spec-rules.sh                    # Phase 1: copy templates/spec-rules/
 │   ├── strip-gitnexus-block.sh                # idempotent CLAUDE.md cleanup
 │   ├── smoke-test.sh                          # standalone MCP smoke test
-│   └── tools/                                 # gitnexus-driven helpers
-│       ├── spec-preflight.sh                  # JSON briefing for spec-create
-│       └── check-anchors.sh                   # drift fast-path for spec-update
+│   ├── tools/                                 # gitnexus-driven helpers
+│   │   ├── spec-preflight.sh                  # JSON briefing for spec-create
+│   │   └── check-anchors.sh                   # drift fast-path for spec-update
+│   └── template/                              # spec template selection
+│       └── select-seed.sh                     # detect stack → return seed path
+│
+├── templates/
+│   ├── spec-rules/*.md                        # Phase 1 deterministic copy
+│   └── specs/                                 # stack-specific seed templates
+│       ├── nextjs.md  ·  hono.md
+│       └── fastapi.md ·  django.md
 │
 ├── bench/                                     # the comparison vs portifolio (n=22 paired tasks)
 └── public/AdamBanner.png

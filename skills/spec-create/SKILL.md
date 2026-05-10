@@ -16,6 +16,7 @@ Add ONE new spec to the project's spec set, then re-weave the index.
 ## Process
 
 1. Confirm the topic isn't already covered. Read every existing `spec/*.md` description; if there's a clear match, propose updating that spec instead.
+
 2. **Run the GitNexus preflight script** to get a code-grounded briefing for the topic. **Do not interpret these steps yourself; call the script.**
 
    ```bash
@@ -30,17 +31,35 @@ Add ONE new spec to the project's spec set, then re-weave the index.
 
    Capture the JSON. **If `status != "ok"`** (gitnexus missing or repo unindexed), surface the error and stop — tell the user to run `/adam:setup` or `gitnexus analyze`. Do not delegate to the agent without a briefing.
 
-3. Delegate to the `adam` sub-agent, passing the briefing inline so the agent does not have to re-discover the structure:
+3. **Select a stack-specific seed** so the new spec lands on the conventional layout for the project's framework. **Do not interpret these steps yourself; call the script.**
 
-   > Add a new spec for `<topic>` to this project. The GitNexus preflight identified the following code structure — treat it as canonical, do not re-grep symbols that are already resolved here:
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/scripts/template/select-seed.sh "$PWD"
+   ```
+
+   The script inspects `package.json`, `pyproject.toml`, `requirements*.txt`, and `manage.py` to detect the stack and emits JSON: `{"stack": "<name>", "seed": "<absolute path>"}` or `{"stack": "unknown", "seed": null}`. Currently shipped seeds: `nextjs`, `hono`, `fastapi`, `django`. If `seed` is `null`, skip the seed-injection paragraph in step 4 and fall back to the unseeded prompt.
+
+4. Open the actual code the new spec will describe (use the briefing's `primary_files` as the read list) so the spec is grounded in real symbols/paths.
+
+5. Delegate to the `adam` sub-agent, passing **both the preflight briefing and (if available) the seed contents** in one prompt:
+
+   > Add a new spec for `<topic>` to this project. The GitNexus preflight identified the following code structure — treat it as canonical, do not re-grep symbols already resolved here:
    >
    > ```json
-   > <briefing JSON>
+   > <briefing JSON from step 2>
    > ```
    >
-   > Write `spec/<topic>.md` with standard frontmatter (name, description, tags, updated) and substantive code-grounded content. Use the `candidates[]` list to populate the anchors block — every entry there is a verified `file:line:symbol` triple. Then add a row to both `spec/INDEX.md` and the spec table in `CLAUDE.md`, picking the correct reading-order position. Run the spec-lint MCP and token-count MCP to verify and to fill the token column.
+   > Use the following stack-specific seed as your structural starting point — keep its section layout (anchors block, How-to recipe, conventions list), replace the `<…>` placeholders with concrete project values, and drop sections that don't apply. Do **not** invent sections that aren't in the seed; consistency across specs is part of how adam keeps the index readable.
+   >
+   > ```md
+   > <contents of the seed file from step 3>
+   > ```
+   >
+   > Write `spec/<topic>.md` with standard frontmatter (name, description, tags, updated, anchors). Use the `candidates[]` list from the briefing to populate the anchors block — every entry there is a verified `file:line:symbol` triple. Then add a row to both `spec/INDEX.md` and the spec table in `CLAUDE.md`, picking the correct reading-order position. Run the spec-lint MCP and token-count MCP to verify and to fill the token column.
 
-4. Surface the agent's report.
+   If `seed: null`, drop the seed paragraph but keep the briefing paragraph.
+
+6. Surface the agent's report.
 
 ## Frontmatter for the new spec
 

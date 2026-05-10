@@ -61,7 +61,7 @@ Then in any project:
 
 | | |
 |---|---|
-| `/adam:setup` | Index with GitNexus, wire `.mcp.json`, scaffold `spec/` + `CLAUDE.md`, prompt for stack-tailored `.claude/` automations. |
+| `/adam:setup` | Run the strict 8-phase pipeline: index with GitNexus, wire `.mcp.json`, scaffold `spec/`, prompt per class (hooks / subagents / skills) for stack-tailored `.claude/` automations, write `CLAUDE.md` last, lint, brief. |
 | `/adam:spec-create <topic>` | Add one new `spec/<topic>.md` and re-weave the index. |
 | `/adam:spec-update [path]` | Drift refresh — verify specs against current code, rewrite stale ones. |
 | `/adam:spec-audit` | Read-only health check. |

@@ -1,15 +1,22 @@
 ---
 name: setup
-description: One-time scaffolding of a spec-driven Claude Code workflow in this project. Use when the user runs /adam:setup, /setup, or asks to "set up adam", "scaffold spec/ folder", "init spec-driven docs", "convert CLAUDE.md into a spec index", or "personalize claude code for this repo". After scaffolding, presents an interactive menu (via AskUserQuestion) to add stack-tailored hooks, skills, and sub-agents to .claude/.
+description: One-time scaffolding of a spec-driven Claude Code workflow in this project. Use when the user runs /adam:setup, /setup, or asks to "set up adam", "scaffold spec/ folder", "init spec-driven docs", "convert CLAUDE.md into a spec index", or "personalize claude code for this repo". Pipeline is strictly ordered: gitnexus analyze → spec scaffolding → per-class AskUserQuestion menus (hooks, subagents, skills) → create only what the user picks → CLAUDE.md → spec-lint verify → final brief.
 ---
 
 # setup
 
-Three-phase bootstrap:
+Strict pipeline. **Do not reorder, do not skip phases, do not write `.claude/` artifacts without going through the AskUserQuestion menus.** Each phase has an output the next phase consumes.
 
-0. **Index** — verify GitNexus is installed and the repo is indexed. Wire `.mcp.json` so Claude can query the graph.
-1. **Scaffold** — write `spec/`, `spec/INDEX.md`, and `CLAUDE.md`.
-2. **Suggest** — interactively offer hooks / skills / sub-agents tailored to the detected stack, using `AskUserQuestion`. Each accepted item is created on the spot.
+```
+P0  gitnexus analyze   ── hard prerequisite, cuts the run if missing
+P1  spec/rules/        ── deterministic copy from the plugin
+P2  spec scaffolding   ── overview + project/ + concepts/ + INDEX.md (NO CLAUDE.md yet)
+P3  three menus        ── hooks, subagents, skills (per-class AskUserQuestion)
+P4  create accepted    ── only the items the user marked
+P5  CLAUDE.md          ── written last, with the .claude/ artifacts in scope
+P6  spec-lint verify   ── MCP call, surface + try to fix
+P7  final brief        ── enumerate the features now active
+```
 
 ## When to run
 
@@ -19,9 +26,9 @@ Three-phase bootstrap:
 
 If `spec/` already contains content and `--force` was not passed, **stop and tell the user** to run `/adam:spec-update` instead.
 
-## Phase 0 — knowledge graph
+## Phase 0 — gitnexus analyze (hard prerequisite)
 
-GitNexus is a hard prerequisite — adam's anchors depend on a current `.gitnexus/` index. **Do not interpret these steps yourself; call the script.** The script is idempotent, deterministic, and parseable.
+GitNexus is a hard prerequisite — adam's anchors depend on a current `.gitnexus/` index. **Do not interpret these steps yourself; call the script.** It is idempotent and parseable.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/setup-graph.sh "$PWD"
@@ -29,120 +36,199 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/setup-graph.sh "$PWD"
 
 The script:
 
-1. Verifies `gitnexus` is on PATH (exits non-zero with a clear `npm install -g gitnexus` hint if missing — relay that to the user verbatim and stop).
-2. Indexes the repo if `.gitnexus/` is absent (`gitnexus analyze` for git repos, `--skip-git` otherwise).
-3. Strips the `<!-- gitnexus:start -->...<!-- gitnexus:end -->` block that `gitnexus analyze` auto-writes into `CLAUDE.md` on first run — its prescriptive "MUST run impact analysis…" rules measurably bias the model toward extra exploration turns; adam's own CLAUDE.md says what we want already.
+1. Verifies `gitnexus` is on PATH. **If missing, exits non-zero with a clear `npm install -g gitnexus` hint** — relay that to the user verbatim and **stop the entire pipeline**. Do not proceed to P1.
+2. Runs `gitnexus analyze` (or `--skip-git` for non-git folders) if `.gitnexus/` is absent.
+3. Strips the `<!-- gitnexus:start -->...<!-- gitnexus:end -->` block that `gitnexus analyze` auto-writes into `CLAUDE.md` on first run — its prescriptive rules measurably bias the model toward extra exploration turns.
 4. Merges `gitnexus` into `.mcp.json` under `mcpServers` (creates the file or splices into an existing one — never overwrites unrelated entries).
 
-The script emits a single JSON object on stdout, e.g. `{"status":"ok","indexed":"true","stripped":"false","mcp":"created","stats":{"nodes":735,"edges":940,"clusters":18,"processes":16},...}`. Surface those stats in the Phase 0 section of the final report. If `status != "ok"`, surface the script's stderr and stop — Phase 1 depends on a working graph.
+The script emits a single JSON object on stdout, e.g. `{"status":"ok","indexed":"true","stripped":"false","mcp":"created","stats":{"nodes":735,"edges":940,"clusters":18,"processes":16},...}`. **Hold the stats** — you'll surface them in the final brief.
 
-## Phase 1 — workflow rules
+If `status != "ok"`, surface the script's stderr and stop — every later phase depends on a working graph.
 
-Copy the plugin's templated workflow rules into the project. **Do not interpret these steps yourself; call the script.** It is deterministic and identical across every install — that's what propagates the bench-validated routing behavior.
+## Phase 1 — spec/rules/ (deterministic copy)
+
+Copy the plugin's templated workflow rules into the project. **Do not interpret these steps yourself; call the script.**
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/write-spec-rules.sh "$PWD"
 ```
 
-The script copies `templates/spec-rules/*.md` from the plugin into `<project>/spec/rules/`. Currently three files: `refactor.md` (cross-file refactor recipe), `additive.md` (adding new functionality), `orient.md` (read-only Q&A). It emits `{"status":"ok","dest":"...","files":3}` on stdout. Surface that in the report.
+The script copies `templates/spec-rules/*.md` into `<project>/spec/rules/` (currently `refactor.md`, `additive.md`, `orient.md`). It emits `{"status":"ok","dest":"...","files":3}`.
 
-These rules are **not project-specific** and must NOT be edited per project. They encode adam's workflow contract; project-specific patterns go under `spec/project/` and `spec/concepts/` instead.
+These rules encode adam's workflow contract — they are **not project-specific** and must NOT be edited per project. Project-specific patterns go under `spec/project/` and `spec/concepts/` instead.
 
-## Phase 2 — scaffold
+## Phase 2 — spec scaffolding (NO CLAUDE.md yet)
 
-Delegate to the `adam` sub-agent:
+Delegate to the `adam` sub-agent in **scaffold-only** mode:
 
-> Run first-time setup in the current working directory. `spec/rules/` has already been populated by the parent skill — do NOT touch it. Detect the stack (manifest files, top-level dirs, infrastructure files), then write `spec/project/<area>.md` files for the conventions you can describe substantively (frontend, backend, stack), and `spec/concepts/<subsystem>.md` deep walkthroughs for the non-trivial subsystems worth their own page. Write `spec/overview.md` and `spec/INDEX.md`. Generate CLAUDE.md as a brief + spec index with token counts (use the token-count MCP). Do **NOT** write to `.claude/` in this phase — that's handled by the parent skill via interactive prompts.
+> Run **scaffold-only** first-time setup in the current working directory. `spec/rules/` has already been populated by the parent skill — do NOT touch it. Detect the stack (manifest files, top-level dirs, infrastructure files), then write:
+>
+> - `spec/overview.md` (high-level "what is this project")
+> - `spec/project/<area>.md` files for the conventions you can describe substantively (frontend, backend, stack, infra…)
+> - `spec/concepts/<subsystem>.md` deep walkthroughs for the non-trivial subsystems worth their own page (each MUST include an anchors block)
+> - `spec/INDEX.md` with a token column populated via the `token-count` MCP
+>
+> **Do NOT write `CLAUDE.md` in this phase.** It is generated in P5 after the user has chosen which `.claude/` artifacts to add. Do NOT write to `.claude/` either — that's P3+P4.
+>
+> Return:
+> 1. Standard report (Created/Updated/Lint/Notes)
+> 2. **Detection signals** — list the stack tags you observed (e.g. `nextjs`, `python+ruff`, `postgres+schema-sql`, `tailwindv4`, `docker-compose`, `tests-pytest`). The parent skill uses these to build the P3 menu candidates.
 
-Surface the agent's report to the user before proceeding.
+Surface the agent's report. If the agent reports failure, do not proceed to P3.
 
-## Phase 3 — interactive suggestion
+## Phase 3 — three per-class AskUserQuestion menus
 
-After the agent returns, build a list of stack-appropriate suggestions. Use the same detection signals the agent reported:
+**This phase is mandatory.** Never write `.claude/` files without going through it. Even if you have one obvious recommendation, ask before creating.
 
-| Detection signal | Suggested artifacts |
-|---|---|
-| Python + ruff | `PostToolUse` hook running `ruff format` on `*.py` writes; `py-test-runner` agent |
-| Python + FastAPI | `fastapi-route-reviewer` agent that reviews `app/api/routes/*.py` for auth, validation, error handling |
-| Next.js / TS | `PostToolUse` hook running `prettier --write` on `*.tsx/*.ts/*.css`; `next-route-reviewer` agent |
-| Tailwind v4 | `tailwind-design-checker` agent for visual consistency |
-| Postgres + `db/schema.sql` | `PostToolUse` warning hook reminding to add a migration when schema changes; `sql-migration-helper` skill |
-| Rust crate | `cargo-test-runner` agent; `PreToolUse` hook running `cargo check` |
-| Docker compose | `docker-compose-helper` skill |
-| Tests directory exists (any framework) | `test-runner` agent matched to the framework |
+Build candidates from the detection signals the agent returned in P2. The reference matrix:
 
-For each candidate, present the user with one (occasionally two) `AskUserQuestion` calls:
+| Detection signal | Hooks | Subagents | Skills |
+|---|---|---|---|
+| Python + ruff | `ruff-format` PostToolUse on `*.py` writes | `py-test-runner` | — |
+| Python + FastAPI | — | `fastapi-route-reviewer` | — |
+| Python + pytest | — | `py-test-runner` | — |
+| Next.js / TS | `prettier-write` PostToolUse on `*.ts/tsx/css` | `next-route-reviewer` | — |
+| Tailwind v4 | — | `tailwind-design-checker` | — |
+| Postgres + `db/schema.sql` | schema-change reminder PostToolUse on `db/schema.sql` writes | — | `sql-migration-helper` |
+| Rust crate | `cargo-check` PreToolUse | `cargo-test-runner` | — |
+| Docker compose | — | — | `docker-compose-helper` |
+| Tests dir present (any framework) | — | `test-runner` matched to framework | — |
+
+Add stack-specific candidates beyond this matrix when the project clearly warrants them. Never invent generic options — every candidate has to map to a concrete file the agent will write in P4.
+
+### Build the three menus, present in order
+
+For **each** of the three classes (`hooks`, then `subagents`, then `skills`), do the following:
+
+1. If the class has zero candidates, **skip silently** — do not call `AskUserQuestion` with an empty list.
+2. If the class has one or more candidates, call `AskUserQuestion` with `multiSelect: true`. Title and header reflect the class.
+
+**Hooks menu** (only if at least one hook candidate exists):
 
 ```
 AskUserQuestion({
   questions: [{
-    question: "Which automations should adam add to .claude/?",
-    header: "Automations",
+    question: "Which hooks should adam wire into .claude/?",
+    header: "Hooks",
     multiSelect: true,
     options: [
-      { label: "ruff PostToolUse hook", description: "Auto-format Python on every Write/Edit. Writes .claude/hooks/ruff-format.sh and references it from .claude/settings.json." },
-      { label: "py-test-runner agent",  description: "Sub-agent that runs pytest and triages failures." },
-      { label: "fastapi-route-reviewer agent", description: "Reviews route files for auth/validation/errors." }
+      { label: "ruff PostToolUse on *.py writes", description: "Writes .claude/hooks/ruff-format.sh and adds a PostToolUse Edit|Write entry to .claude/settings.json. Auto-formats Python after every Write/Edit." },
+      { label: "schema-change reminder", description: "PostToolUse on db/schema.sql writes — prints a TODO line reminding the assistant to add a migration. Writes .claude/hooks/schema-warn.sh." }
     ]
   }]
 })
 ```
 
-**Rules for the question UX:**
+**Subagents menu** (only if at least one subagent candidate exists):
 
-- Group all suggestions into ONE multi-select question if there are ≤4 candidates.
-- If there are >4 candidates, split into two groups (hooks vs agents/skills) — at most 2 questions total.
-- Every option needs a 1-line `description` that says what file gets created and what it does.
-- Never include an option for something the project doesn't need — empty is a valid suggestion list. If you have nothing useful to suggest, skip Phase 2 entirely and tell the user.
+```
+AskUserQuestion({
+  questions: [{
+    question: "Which sub-agents should adam add to .claude/agents/?",
+    header: "Subagents",
+    multiSelect: true,
+    options: [
+      { label: "py-test-runner",        description: "Runs pytest, parses failures, writes a triage summary. .claude/agents/py-test-runner.md" },
+      { label: "fastapi-route-reviewer", description: "Reviews app/api/routes/*.py for auth, validation, error shape. .claude/agents/fastapi-route-reviewer.md" }
+    ]
+  }]
+})
+```
 
-## Phase 4 — write the accepted items
+**Skills menu** (only if at least one skill candidate exists):
 
-For each item the user selected:
+```
+AskUserQuestion({
+  questions: [{
+    question: "Which skills should adam add to .claude/skills/?",
+    header: "Skills",
+    multiSelect: true,
+    options: [
+      { label: "sql-migration-helper", description: "Slash command to draft a new migration file matching the project's existing migration style. .claude/skills/sql-migration-helper/SKILL.md" }
+    ]
+  }]
+})
+```
 
-- **Hooks** → write the command body to `.claude/hooks/<kebab-name>.sh` (with `#!/usr/bin/env bash` + `set -euo pipefail`, then `chmod +x`), then merge a `{ "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/<kebab-name>.sh" }` entry into `.claude/settings.json` under the right matcher (read existing, splice in, write back). Never inline command bodies into `settings.json`. Never overwrite — preserve unrelated hooks the user already has.
+Hold the user's selections — they drive P4. If the user selects nothing in a class, that class contributes nothing in P4.
+
+### Rules for the menu UX
+
+- Each option's `description` must say **what file is created** and **what it does**, in one line.
+- Never include an option for something the project doesn't need — empty class = silent skip.
+- Never bundle classes into one question. Three classes, three potential questions.
+- Never ask twice for the same class.
+- The user's "Other" responses are free text — treat them as a feature request, not as a guaranteed candidate. If the request is concrete enough to act on, fold it into P4; otherwise note it in the final brief and skip.
+
+## Phase 4 — create only what the user marked
+
+For each accepted item from the P3 menus, dispatch the `adam` sub-agent in **claude-add** mode (or write directly using the same rules from `agents/adam.md` — both are valid):
+
+- **Hooks** → write the command body to `.claude/hooks/<kebab-name>.sh` (with `#!/usr/bin/env bash` + `set -euo pipefail`, then `chmod +x`), then merge a `{ "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/<kebab-name>.sh" }` entry into `.claude/settings.json` under the right matcher (read existing, splice in, write back). **Never inline command bodies into `settings.json`. Never overwrite — preserve unrelated hooks the user already has.**
 - **Sub-agents** → write `.claude/agents/<kebab-name>.md` with proper frontmatter (`name`, `description` enumerating trigger phrases, `model`, optional `tools`).
 - **Skills** → write `.claude/skills/<kebab-name>/SKILL.md` with frontmatter and substantive instructions.
 
-Keep each file substantive — no placeholder content. If you can't write something useful, drop the suggestion rather than ship a stub.
+Each file must be substantive — no placeholders, no stubs. If you cannot write something useful for an accepted item, drop it and note that in the final brief rather than ship a stub.
 
-## Output format
+## Phase 5 — write CLAUDE.md
 
-Three reports separated:
+CLAUDE.md is generated **last** so it can reference the actual `.claude/` artifacts that now exist. Delegate to the `adam` agent in **finalize** mode:
+
+> Generate `CLAUDE.md` for the project. The spec tree is already in place, and `.claude/` now contains the artifacts the user accepted in P4. Use the structure documented in `agents/adam.md` (sections 1-8). The Spec Index table mirrors `spec/INDEX.md` with a Tokens column populated via the `token-count` MCP. If `.claude/agents/`, `.claude/skills/`, or `.claude/hooks/` contain entries, add a short "Project automations" subsection listing them. Do NOT touch `spec/` — it's frozen for this run.
+
+## Phase 6 — spec-lint verify
+
+Run the `spec-lint` MCP against the project root:
 
 ```
-── Phase 0: knowledge graph ──
-GitNexus: <indexed | newly indexed | already current>
-Stats: <nodes / edges / clusters / processes>
-.mcp.json: <created | merged | already wired>
-
-── Phase 1: workflow rules ──
-spec/rules/: <N files written from plugin templates>
-
-── Phase 2: spec scaffolding ──
-<adam agent's standard report — Created/Updated/Deleted/Lint/Notes — broken down by spec/project/ and spec/concepts/>
-
-── Phase 3: project automations ──
-Created:
-  - .claude/agents/<name>.md  — <one-line reason>
-  - .claude/hooks/<name>.sh   — <one-line reason>
-  - .claude/settings.json     — <which hook events now reference which scripts>
-
-Skipped (user declined):
-  - <name> — <one-line description>
-
-Skipped (no fit detected):
-  - <category> — <reason>
+spec-lint.lint({ root: "$PWD" })
 ```
 
-Then close with:
+Surface the result. If `ok: false`:
 
-> Run `/adam:spec-update` after substantive code changes, or `/adam:spec-create <topic>` when introducing a new concept. Use `/adam:claude-add <kind> "<description>"` to add another automation later.
+- Errors → fix immediately (re-dispatch the `adam` agent with the error list, or fix in-place if the issue is mechanical, e.g. a missing frontmatter field).
+- Warnings → surface but don't block. Note them in the final brief.
+
+Re-run lint after any fix until `errors: []`.
+
+## Phase 7 — final brief
+
+Single message to the user, in this format:
+
+```
+adam setup complete.
+
+Knowledge graph
+  GitNexus: <indexed | newly indexed | already current>  (<nodes> nodes / <edges> edges / <clusters> clusters)
+
+Specs
+  spec/overview.md                  ── <one-line>
+  spec/project/<files>              ── <count> file(s): <names>
+  spec/concepts/<files>             ── <count> file(s): <names>
+  spec/rules/                       ── 3 workflow recipes
+  spec/INDEX.md                     ── token-counted index
+
+Project automations  (only what you picked)
+  Hooks:     <names or "none">
+  Subagents: <names or "none">
+  Skills:    <names or "none">
+
+CLAUDE.md
+  written, <token count> tokens
+
+Lint
+  <"clean" or summary of warnings left>
+
+Try next:
+  /adam:spec-update   ── refresh specs after substantive code changes
+  /adam:spec-create <topic>   ── add a new spec page
+  /adam:claude-add <kind> "<description>"   ── add another hook/agent/skill later
+```
 
 ## Guardrails
 
-- Phase 3 must run AFTER phase 2 succeeds. If the agent fails to scaffold, do not proceed to suggestions.
-- Phase 1 (rules) must run BEFORE phase 2 (scaffold) — the meta-agent references `spec/rules/` from the CLAUDE.md it generates.
-- Never create empty .claude/ files — only write what the user explicitly accepted.
-- Merge `.claude/settings.json`, never overwrite. The actual command body for any hook lives in `.claude/hooks/<name>.sh`; `settings.json` only references it.
-- If the user has zero automations to suggest, say so and do not call AskUserQuestion at all (don't fake a question).
-- Do not commit. Leave the working tree dirty.
+- **Phase order is strict.** P0 missing gitnexus → stop. P2 fails → stop. Skipping P3 is a bug — even one accepted item must go through `AskUserQuestion`.
+- **Never write `.claude/` files outside P4.** No defaults, no "obvious" auto-additions.
+- **CLAUDE.md is P5, not P2.** It must reflect what `.claude/` actually contains by the time you write it.
+- **Never overwrite `.claude/settings.json`** — read, splice, write back.
+- **Don't commit.** Leave the working tree dirty.

@@ -20,8 +20,8 @@ adam/
 │   └── spec-{create,update,audit}/
 │
 ├── hooks/
-│   ├── hooks.json                             # SessionStart + PostToolUse wiring
-│   └── graph-context.js                       # PostToolUse: detached gitnexus re-index after edits
+│   ├── hooks.json                             # PostToolUse wiring
+│   └── graph-context.ts                       # PostToolUse: detached gitnexus re-index after edits
 │
 ├── mcps/                                      # bundled MCP servers (TypeScript via tsx)
 │   ├── lib/tokens.ts                          # shared gpt-tokenizer wrapper
@@ -30,8 +30,11 @@ adam/
 │
 ├── scripts/                                   # deterministic infra called by skills
 │   ├── setup-graph.sh                         # Phase 0 of /adam:setup
+│   ├── write-spec-rules.sh                    # Phase 1: copy templates/spec-rules/
 │   ├── strip-gitnexus-block.sh                # idempotent CLAUDE.md cleanup
-│   └── smoke-test.sh                          # standalone MCP smoke test
+│   ├── smoke-test.sh                          # standalone MCP smoke test
+│   └── tools/                                 # gitnexus-driven helpers
+│       └── spec-preflight.sh                  # JSON briefing for spec-create
 │
 ├── bench/                                     # the comparison vs portifolio (n=22 paired tasks)
 └── public/AdamBanner.png
@@ -39,39 +42,30 @@ adam/
 
 ## Phases of `/adam:setup`
 
-Three phases run sequentially. Each can be invoked standalone via its own slash command later.
+Eight phases, strictly ordered. The full prose lives in [`skills/setup/SKILL.md`](skills/setup/SKILL.md); the table below is the index.
 
-### Phase 0 — knowledge graph (`scripts/setup-graph.sh`)
+| P | What | Where |
+|---|---|---|
+| 0 | `gitnexus analyze` (hard prereq — cuts the run if missing) | `scripts/setup-graph.sh` |
+| 1 | `spec/rules/` deterministic copy | `scripts/write-spec-rules.sh` |
+| 2 | spec scaffolding — `overview` + `project/` + `concepts/` + `INDEX.md` (no `CLAUDE.md` yet) | `agents/adam.md` (scaffold-only) |
+| 3 | three per-class `AskUserQuestion` menus — hooks, then subagents, then skills | `skills/setup/SKILL.md` |
+| 4 | create only the items the user picked | `agents/adam.md` (claude-add) |
+| 5 | `CLAUDE.md` — written last so it can list the actual `.claude/` artifacts | `agents/adam.md` (finalize) |
+| 6 | `spec-lint` MCP verify | `mcps/spec-lint/server.ts` |
+| 7 | final brief — graph stats, specs, automations, tokens, lint state | `skills/setup/SKILL.md` |
 
-Deterministic shell — the skill calls it instead of interpreting the steps itself. Emits one JSON object on stdout the calling skill parses:
+P0 strips the `<!-- gitnexus:start --> ... <!-- gitnexus:end -->` block GitNexus auto-injects into `CLAUDE.md` on first analyze — its prescriptive *"MUST run impact analysis before editing any symbol"* rules measurably bias Sonnet toward extra exploration turns. P0 also merges a `gitnexus` entry into `mcpServers` in `.mcp.json`, preserving any unrelated entries.
 
-1. `which gitnexus` — the CLI is a hard prereq; if it's missing, exit non-zero with `npm install -g gitnexus`.
-2. `gitnexus analyze` (or `--skip-git` for non-git folders) if `.gitnexus/` doesn't exist.
-3. Strip the `<!-- gitnexus:start --> ... <!-- gitnexus:end -->` block GitNexus auto-injects into `CLAUDE.md` on first analyze (delegates to `strip-gitnexus-block.sh`). Its prescriptive *"MUST run impact analysis before editing any symbol"* rules measurably bias Sonnet toward extra exploration turns; adam's own CLAUDE.md says what we want already.
-4. Merge a `gitnexus` entry into `mcpServers` in `.mcp.json` — preserves any unrelated entries (writes a fresh file if absent).
-
-### Phase 1 — scaffold (`agents/adam.md`)
-
-The meta-agent reads the working tree, detects stack and subsystems, and writes:
-
-- `CLAUDE.md` — ~80-line brief: what is this, stack, runtime shape, spec index table, response-style block, editing-code block (graph-first), refresh pointer.
-- `spec/<topic>.md × 3-8` — one per detected subsystem. Each has frontmatter + substantive content + an **anchors block** mapping symbols to the `gitnexus_context({name, repo})` call that resolves them.
-- `spec/INDEX.md` — one-line summary per spec.
-
-The agent does not write to `.claude/` in this phase — that's Phase 2.
-
-### Phase 2 — automations (interactive)
-
-The setup skill builds a list of stack-tailored suggestions (`PostToolUse` formatter for the detected language, test-runner sub-agent for the detected framework, etc.) and asks via `AskUserQuestion`. Each accepted item lands in `.claude/agents/`, `.claude/skills/`, or `.claude/hooks/` + a merged reference in `.claude/settings.json`. Nothing gets written without explicit selection.
+P3 is mandatory: `.claude/` files are only ever created via the menu — no defaults, no auto-additions. CLAUDE.md is deferred to P5 so it can reference the real artifacts in `.claude/`.
 
 ## Hooks
 
-Two hooks ship at plugin scope (auto-applied to every adam-using project):
+One hook ships at plugin scope (auto-applied to every adam-using project):
 
 | Event | Source | Purpose |
 |---|---|---|
-| `SessionStart` | inline `npm install` | One-time install of bundled MCP server deps into `${CLAUDE_PLUGIN_DATA}` per the official Claude Code spec. Idempotent. |
-| `PostToolUse` (`Edit\|Write\|MultiEdit`) | `hooks/graph-context.js` | Detached `gitnexus analyze --skip-git` so the next graph query reads a working-tree-current view. Lockfile-guarded so concurrent edits don't collide on the LadybugDB WAL. Silent — never injects context messages into the chat. |
+| `PostToolUse` (`Edit\|Write\|MultiEdit`) | `hooks/graph-context.ts` (run via the bundled `tsx`) | Detached `gitnexus analyze --skip-git` so the next graph query reads a working-tree-current view. Lockfile-guarded so concurrent edits don't collide on the LadybugDB WAL. Silent — never injects context messages into the chat. |
 
 The PostToolUse hook is intentionally write-only: it doesn't emit `additionalContext`. Earlier prototypes that *also* injected pre-prompt graph context regressed bench performance because pre-injection broke prompt-cache reuse on tightly-scoped prompts. The current design relies on the model querying the graph on demand via the `gitnexus` MCP server — the auto re-index just keeps that data fresh.
 
@@ -85,7 +79,7 @@ Three MCP servers are in play after `/adam:setup`:
 | `adam:spec-lint` | bundled (TypeScript via `tsx`) | Validates `spec/` + `CLAUDE.md` + `.claude/` integration. Catches oversize specs, broken cross-refs, missing index entries, missing frontmatter. |
 | `adam:token-count` | bundled (TypeScript via `tsx`) | Token counts via `gpt-tokenizer` (cl100k_base, pure JS, no WASM, no API key). Within ~3-8% of Anthropic's tokenizer. |
 
-Bundled MCPs run from `${CLAUDE_PLUGIN_DATA}/node_modules` (auto-installed by the SessionStart hook). `gitnexus` is a one-time global install.
+Bundled MCPs and the PostToolUse hook run from `${CLAUDE_PLUGIN_ROOT}/node_modules/.bin/tsx` — Claude Code installs the plugin's `package.json` deps into `${CLAUDE_PLUGIN_ROOT}/node_modules` at plugin install time, so no SessionStart bootstrap is needed. `gitnexus` is a one-time global install.
 
 ## Skills design — scripts over LLM-interpreted shell
 
@@ -99,10 +93,9 @@ Verified against [code.claude.com/docs/en/plugins-reference](https://code.claude
 
 - ✅ Manifest at `.claude-plugin/plugin.json`, only `name` required, `$schema` URL referenced.
 - ✅ Components at plugin root (commands, agents, skills, hooks, mcps).
-- ✅ `${CLAUDE_PLUGIN_ROOT}` for bundled paths; `${CLAUDE_PLUGIN_DATA}` for installed dependencies (survives plugin updates).
+- ✅ `${CLAUDE_PLUGIN_ROOT}` for bundled paths and the auto-installed `node_modules`.
 - ✅ Agent frontmatter uses only allowed fields (`name`, `description`, `model`, `color`).
 - ✅ Skill descriptions enumerate explicit trigger phrases.
-- ✅ SessionStart hook follows the official `diff → npm install` pattern.
 - ✅ Plugin-level hooks reference scripts via `${CLAUDE_PLUGIN_ROOT}` rather than inlining shell.
 - ✅ MCP servers wired via `.mcp.json` with portable `${...}` substitutions.
 

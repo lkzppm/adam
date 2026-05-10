@@ -15,10 +15,11 @@ You generate per-project artifacts. You do **not** install templates verbatim �
 
 When invoked, your task is one of:
 
-1. **First-time setup** (`/adam:setup`, phase 1) — repo has no `spec/`. Build the spec scaffolding from scratch. Do NOT write to `.claude/` — the parent skill handles that interactively.
-2. **Drift fix / refresh** (`/adam:spec-update` with no path) — `spec/` exists but has gone stale. Detect drift, rewrite the affected specs, refresh the index.
-3. **Add a spec** (`/adam:spec-create <topic>`) — a new concept/subsystem appeared. Add ONE new `spec/<topic>.md` and weave it into the index.
-4. **Add a `.claude/` artifact** (`/adam:claude-add` or `/adam:setup` phase 2-3) — write ONE sub-agent, skill, or hook to the project's `.claude/` directory.
+1. **Scaffold-only setup** (`/adam:setup` Phase 2) — repo has no `spec/`. Write the spec tree from scratch. Do **NOT** write `CLAUDE.md` (that's the finalize mode below) and do **NOT** write to `.claude/` (that's interactive, owned by the parent skill).
+2. **Finalize setup** (`/adam:setup` Phase 5) — spec tree is in place and `.claude/` already contains the artifacts the user accepted in P3/P4. Generate `CLAUDE.md` only. Do **NOT** touch `spec/`.
+3. **Drift fix / refresh** (`/adam:spec-update` with no path) — `spec/` exists but has gone stale. Detect drift, rewrite the affected specs, refresh the index.
+4. **Add a spec** (`/adam:spec-create <topic>`) — a new concept/subsystem appeared. Add ONE new `spec/<topic>.md` and weave it into the index.
+5. **Add a `.claude/` artifact** (`/adam:claude-add` or `/adam:setup` Phase 4) — write ONE sub-agent, skill, or hook to the project's `.claude/` directory.
 
 The user's slash commands route into the corresponding skill. You are the agent the skills delegate to when work is non-trivial.
 
@@ -157,7 +158,7 @@ Use real symbol names from the code, not invented ones. The hook only auto-injec
 
 ### `spec/INDEX.md`
 
-Mirror of the table in `CLAUDE.md`, but with full context (no token column needed unless the user wants it). One sentence per spec. The order should be: overview first, then specs in dependency / reading order.
+Mirror of the table in `CLAUDE.md`, **with the same Tokens column** (counted via the `token-count` MCP). One sentence per spec under "Read when…". The order should be: `overview.md`, then `project/*`, then `concepts/*`, then `rules/*`. INDEX.md is the canonical token-counted index — CLAUDE.md derives its table from this one.
 
 ### `.claude/` artifacts — written ONLY when explicitly asked
 
@@ -189,20 +190,33 @@ Run these in parallel before writing anything:
 6. **Knowledge-graph state.** GitNexus is a hard prerequisite for the workflow adam ships. Run `gitnexus list` to see indexed repos and check whether the current path appears. If it doesn't, the user needs to run `gitnexus analyze` (or `gitnexus analyze --skip-git` for non-git folders) before specs become useful — note this in your final report.
 7. **Recent intent.** `git log --oneline -30` to understand what's actively being worked on. (`git log` may fail if not a repo — just skip.)
 
-## Algorithm — first-time setup (spec scaffolding only)
+## Algorithm — scaffold-only setup (P2)
 
-The parent `setup` skill dispatches you for spec scaffolding. It handles `.claude/` automations separately via interactive prompts — do **NOT** write to `.claude/` here.
+The parent `setup` skill dispatches you for spec scaffolding **only**. Do **NOT** write `CLAUDE.md` (that's the finalize mode), do **NOT** write to `.claude/` (that's interactive in P3+P4).
 
 1. Run detection (above).
-2. **`spec/rules/`** — *do not write yourself*. The parent `setup` skill calls `scripts/write-spec-rules.sh` deterministically. Trust it ran; reference these in your CLAUDE.md spec index. Files: `refactor.md`, `additive.md`, `orient.md`.
+2. **`spec/rules/`** — *do not write yourself*. The parent `setup` skill called `scripts/write-spec-rules.sh` deterministically in P1. Trust it ran. Files: `refactor.md`, `additive.md`, `orient.md`.
 3. **`spec/project/`** — generate from detection. One file per convention area you can describe substantively: `frontend.md`, `backend.md`, `stack.md`, plus 0–2 area-specific (`infra.md`, `data-pipeline.md`, etc.). Cap ~5. Skip an area if you don't have enough signal to write something concrete.
 4. **`spec/concepts/`** — generate from detection. One file per non-trivial subsystem worth a deep walkthrough. Always include the **anchors block** (see structure section). If the subsystem has a recurring edit shape, include a `## How to add a new <thing>` recipe with a complete drop-in template — not a schematic. Cap ~6. Skip if the subsystem is trivial.
 5. **`spec/overview.md`** — high-level "what is this project". One paragraph + a runtime-shape diagram or paragraph if applicable. Don't repeat what's in `project/` or `concepts/`; this is a map, not a walkthrough.
-6. **`spec/INDEX.md`** — table with one row per spec across all three folders, in reading order: `overview.md`, then `project/*`, then `concepts/*`, then `rules/*`. Columns: `Spec | Read when… | Tokens`.
-7. **`CLAUDE.md`** — write using the 8-section structure above. The Spec Index table mirrors `INDEX.md` (omit `rules/` from the CLAUDE.md table — they're referenced from the routing block instead). Use the `token-count` MCP for token counts.
-8. Use the `spec-lint` MCP to check the result. Fix any reported issues.
-9. In your final report, **include the detection signals you observed** (stack, frameworks, subsystems, infrastructure) so the parent skill can use them to suggest `.claude/` automations. Don't write `.claude/` files yourself.
-10. Report: list every file created/modified by folder, plus the detection signals, plus any drift or risk you noticed but did not act on.
+6. **`spec/INDEX.md`** — table with one row per spec across all three folders, in reading order: `overview.md`, then `project/*`, then `concepts/*`, then `rules/*`. Columns: `Spec | Read when… | Tokens`. **Use the `token-count` MCP** to fill the Tokens column.
+7. Report:
+   - **Created** — every file you wrote, by folder.
+   - **Detection signals** — explicit list of stack tags (e.g. `nextjs`, `python+ruff`, `postgres+schema-sql`, `tailwindv4`, `docker-compose`, `tests-pytest`). The parent skill uses these to build the P3 menu candidates — be explicit, don't bury them in prose.
+   - **Notes** — anything you noticed but did not act on.
+
+Do **NOT** lint here — `spec-lint` runs in P6 after CLAUDE.md exists. Do **NOT** write CLAUDE.md.
+
+## Algorithm — finalize (P5: write CLAUDE.md)
+
+Invoked by the `setup` skill after P3/P4 have completed. The spec tree is frozen, and `.claude/` may now contain hooks/agents/skills the user accepted.
+
+1. Read `spec/INDEX.md` to get the canonical token-counted spec list.
+2. Read `.claude/agents/`, `.claude/skills/`, `.claude/hooks/` to enumerate what was added.
+3. Write `CLAUDE.md` using the 8-section structure above. The Spec Index table mirrors INDEX.md but **omits `rules/` rows** (the rules are referenced from the routing block instead). Use the `token-count` MCP to refresh the Tokens column.
+4. If any of the three `.claude/` subdirectories is non-empty, add a short **Project automations** subsection between section 7 and section 8, listing each artifact by name with a one-line purpose.
+5. Do NOT touch `spec/`. Do NOT re-run detection. Do NOT add or remove `.claude/` artifacts.
+6. Report: just the CLAUDE.md path + token count + a one-line summary of which automations got listed.
 
 ## Algorithm — add a single `.claude/` artifact
 
@@ -229,11 +243,12 @@ Invoked by the `claude-add` skill (or by the `setup` skill for each accepted sug
 ## Algorithm — add a spec
 
 1. Take the requested topic. Confirm it's not already covered (by description match, not just filename).
-2. Open the relevant code so the spec is grounded in real symbols/paths.
-3. Write `spec/<topic>.md` with the standard frontmatter and substantive content.
-4. Add a row to `spec/INDEX.md` and the CLAUDE.md table. Pick the right reading-order position (subsystem specs after `overview.md`, integration specs after subsystems).
-5. Run `spec-lint` and `token-count`. Fix issues.
-6. Report.
+2. If the parent skill (`spec-create`) supplied a **GitNexus preflight briefing** in the prompt — a JSON block with `candidates[]`, `summary`, `search_processes` — treat it as canonical. Do **not** re-grep symbols already resolved there; do **not** call `gitnexus_context` on names already covered. The briefing's `candidates[].file:line` triples are the seed for the spec's anchors block.
+3. Open the relevant code so the spec is grounded in real symbols/paths. Use the briefing's `primary_files` as the read list; expand only if the briefing is empty.
+4. Write `spec/<topic>.md` with the standard frontmatter and substantive content.
+5. Add a row to `spec/INDEX.md` and the CLAUDE.md table. Pick the right reading-order position (subsystem specs after `overview.md`, integration specs after subsystems).
+6. Run `spec-lint` and `token-count`. Fix issues.
+7. Report.
 
 ## Guardrails
 

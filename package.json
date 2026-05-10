@@ -1,7 +1,7 @@
 {
   "name": "adam-plugin-mcps",
   "version": "0.3.0",
-  "description": "Shared dependencies for the adam plugin's MCP servers (spec-lint, token-count). Installed into ${CLAUDE_PLUGIN_DATA}/node_modules by the SessionStart hook so it survives plugin updates.",
+  "description": "Dependencies for the adam plugin's MCP servers (spec-lint, token-count). Claude Code installs these into ${CLAUDE_PLUGIN_ROOT}/node_modules at plugin install time; the MCP servers run via the bundled tsx binary.",
   "private": true,
   "type": "module",
   "scripts": {

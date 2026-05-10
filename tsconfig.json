@@ -17,5 +17,5 @@
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true
   },
-  "include": ["mcps/**/*.ts"]
+  "include": ["mcps/**/*.ts", "hooks/**/*.ts"]
 }

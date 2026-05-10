@@ -10,8 +10,20 @@ Read-only health check of the spec-driven workflow. Distinct from `spec-update`:
 ## Process
 
 1. Invoke the `spec-lint` MCP tool (`lint`) with the project root as the path argument. The lint result already includes a token summary for every spec.
-2. If you need raw counts for a specific file (e.g. to weigh whether to split it), use the `token-count` MCP tool (`count`).
-3. Format the combined output as a readable report (issues grouped by severity, then a token-count summary table).
+2. **Run the graph cross-check**. **Do not interpret these steps yourself; call the script.**
+
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/scripts/validators/spec-graph-xref.sh "$PWD"
+   ```
+
+   The script walks `spec/**/*.md` and reports two distinct classes of dangling references:
+   - **Errors (`kind: "path"`)** — backticked file paths in spec bodies that don't exist on disk (e.g. spec mentions `src/foo.ts` but the file moved or was deleted).
+   - **Warnings (`kind: "symbol"`)** — symbol names from the `## Anchors` markdown table that don't resolve in the GitNexus graph (e.g. spec lists a class that's been renamed).
+
+   If gitnexus is missing or the repo isn't indexed, the script exits non-zero with a single env error — surface that, but still surface the spec-lint MCP result from step 1.
+
+3. If you need raw counts for a specific file (e.g. to weigh whether to split it), use the `token-count` MCP tool (`count`).
+4. Format the combined output as a readable report — first the spec-lint MCP issues, then the xref errors/warnings, then a token-count summary table.
 
 ## Report format
 
@@ -19,10 +31,10 @@ Read-only health check of the spec-driven workflow. Distinct from `spec-update`:
 Spec ecosystem audit — <repo name>
 
 Errors (must fix):
-  - <issue>
+  - <issue>          (from spec-lint or xref kind:"path")
 
 Warnings:
-  - <issue>
+  - <issue>          (from spec-lint or xref kind:"symbol")
 
 Token counts:
   | Spec                    | Tokens |
@@ -30,6 +42,10 @@ Token counts:
   | spec/overview.md        |  N     |
   | …                       |  …     |
   | CLAUDE.md               |  N     |
+
+Cross-references:
+  paths checked: N    symbols checked: N
+  dangling paths: N   unresolved symbols: N
 
 Summary: <one-line health verdict>
 ```

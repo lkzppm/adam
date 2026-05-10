@@ -36,8 +36,10 @@ adam/
 │   ├── tools/                                 # gitnexus-driven helpers
 │   │   ├── spec-preflight.sh                  # JSON briefing for spec-create
 │   │   └── check-anchors.sh                   # drift fast-path for spec-update
-│   └── template/                              # spec template selection
-│       └── select-seed.sh                     # detect stack → return seed path
+│   ├── template/                              # spec template selection
+│   │   └── select-seed.sh                     # detect stack → return seed path
+│   └── validators/                            # spec linting
+│       └── spec-graph-xref.sh                 # disk paths + graph symbols
 │
 ├── templates/
 │   ├── spec-rules/*.md                        # Phase 1 deterministic copy

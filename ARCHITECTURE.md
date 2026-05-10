@@ -31,7 +31,9 @@ adam/
 ├── scripts/                                   # deterministic infra called by skills
 │   ├── setup-graph.sh                         # Phase 0 of /adam:setup
 │   ├── strip-gitnexus-block.sh                # idempotent CLAUDE.md cleanup
-│   └── smoke-test.sh                          # standalone MCP smoke test
+│   ├── smoke-test.sh                          # standalone MCP smoke test
+│   └── validators/                            # spec linting
+│       └── spec-graph-xref.sh                 # disk paths + graph symbols
 │
 ├── bench/                                     # the comparison vs portifolio (n=22 paired tasks)
 └── public/AdamBanner.png

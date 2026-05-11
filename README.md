@@ -54,20 +54,47 @@ npm install -g gitnexus            # required prereq
 Then in any project:
 
 ```
-/adam:setup
+/setup
 ```
 
-## Commands
+## Skills
 
-| | |
-|---|---|
-| `/adam:setup` | Run the strict 8-phase pipeline: index with GitNexus, wire `.mcp.json`, scaffold `spec/`, prompt per class (hooks / subagents / skills) for stack-tailored `.claude/` automations, write `CLAUDE.md` last, lint, brief. |
-| `/adam:spec-create <topic>` | Add one new `spec/<topic>.md` and re-weave the index. |
-| `/adam:spec-update [path]` | Drift refresh — verify specs against current code, rewrite stale ones. |
-| `/adam:spec-audit` | Read-only health check. |
-| `/adam:claude-add [agent\|skill\|hook]` | Add one automation to `.claude/`. |
+Each slash command is a Claude Code **skill** — a `SKILL.md` that orchestrates deterministic `scripts/**/*.sh` plus the `adam` sub-agent. The shell scripts do the parts that don't need an LLM (graph queries, drift detection, stack sniffing, file walking), so the model only spends tokens on the parts that actually require judgment. Natural-language triggers fire the same skills, so you don't have to type the slash form.
 
-Each command has a same-named skill, so natural-language triggers also work.
+### `/setup` — first-time scaffolding
+Strict 8-phase pipeline. Two deterministic scripts front-load the boring work:
+- **`scripts/tools/setup-graph.sh`** — verifies `gitnexus` is on PATH, runs `gitnexus analyze` if `.gitnexus/` is missing, strips the auto-injected `<!-- gitnexus:start -->` block from `CLAUDE.md` (its prescriptive boilerplate measurably bias the model), and merges the `gitnexus` MCP entry into `.mcp.json` without clobbering existing servers. Emits a single JSON status line the skill parses.
+- **`scripts/template/write-spec-rules.sh`** — copies the plugin's `templates/spec-rules/*.md` into `<project>/spec/rules/` (the three workflow recipes that never change per project).
+
+Then the `adam` sub-agent scaffolds `spec/overview.md`, `spec/project/*`, `spec/concepts/*`, and `spec/INDEX.md`, returning the stack signals it detected. The skill builds three per-class `AskUserQuestion` menus (hooks, subagents, skills) from those signals, writes only the items you tick, generates `CLAUDE.md` last so it can reference the actual `.claude/` artifacts in scope, then runs the `spec-lint` MCP and prints a final brief.
+
+### `/spec-create <topic>` — add one new spec
+Two deterministic scripts gather code-grounded context before the agent writes a single line:
+- **`scripts/tools/spec-preflight.sh`** — calls `gitnexus query` + `gitnexus context` for the topic (and any path hints you pass), flattens incoming/outgoing edge sets, and emits a JSON briefing: `{topic, candidates: [{name, uid, kind, file, line, incoming, outgoing}], primary_files, …}`. The agent treats the briefing as canonical and skips re-grepping for symbols already resolved.
+- **`scripts/template/select-seed.sh`** — sniffs `package.json` deps, `pyproject.toml`, `requirements*.txt`, and `manage.py` to pick the right `templates/specs/<stack>.md` seed (currently `nextjs`, `hono`, `fastapi`, `django`). The seed enforces a consistent shape across specs — anchors block, How-to recipe, conventions list.
+
+The agent gets briefing + seed in one prompt, writes `spec/<topic>.md` with verified `file:line:symbol` anchors, then re-weaves `spec/INDEX.md` and the `CLAUDE.md` spec table (token counts via the `token-count` MCP).
+
+### `/spec-update [path]` — drift refresh
+Two deterministic scripts scope the agent's work to specs that actually need rewriting:
+- **`scripts/utils/strip-gitnexus-block.sh`** — removes the `<!-- gitnexus:start -->` block that `gitnexus analyze` re-injects into `CLAUDE.md` on every run, so the agent reads the version adam actually authored.
+- **`scripts/tools/check-anchors.sh`** — walks every `spec/**/*.md`, parses the machine-readable `anchors:` frontmatter list, asks GitNexus to resolve each entry, and partitions output into `{drifted, clean, unchecked}`. Specs in `clean` are skipped entirely; specs in `drifted` get a focused agent prompt naming the broken anchors; specs in `unchecked` (no `anchors:` yet) fall back to a full re-read and get an anchors block added for next time.
+
+Single-path mode (`/spec-update spec/foo.md`) skips the partition and goes straight to a single-spec rewrite.
+
+### `/spec-audit` — read-only health check
+One deterministic script plus two MCP calls, no agent dispatch:
+- **`spec-lint` MCP** — checks `spec/INDEX.md` ↔ `spec/*.md` coverage, `CLAUDE.md` spec table consistency, frontmatter, cross-references, and per-spec token ceilings.
+- **`scripts/validators/spec-graph-xref.sh`** — reports two distinct classes of dangling references: **errors** for backticked file paths in spec bodies that don't exist on disk, **warnings** for symbols in `## Anchors` tables that don't resolve in GitNexus.
+- **`token-count` MCP** — per-spec token counts for the summary table.
+
+The skill formats the combined result as a single readable report and points you at `/spec-update` for any errors.
+
+### `/claude-add [agent|skill|hook]` — add one automation
+No backing script — this one is intentionally interactive. The skill resolves the kind via `AskUserQuestion` (if not given), reads `CLAUDE.md` + the relevant `spec/*.md` for grounding, asks at most two follow-ups for missing details, then delegates writing to the `adam` sub-agent. For hooks, the command body always lands in `.claude/hooks/<name>.sh` (executable, with shebang); `.claude/settings.json` is **merged** (read, splice, write back), never overwritten.
+
+### Background hook
+A small `PostToolUse` hook re-indexes the graph after every edit, so the next prompt sees current state. No agent-visible noise.
 
 ## What lands in your repo
 
@@ -94,8 +121,6 @@ your-project/
     ├── hooks/<name>.sh
     └── settings.json
 ```
-
-A small `PostToolUse` hook re-indexes the graph in the background after every edit — no agent-visible noise.
 
 ## Where it wins, where it doesn't
 

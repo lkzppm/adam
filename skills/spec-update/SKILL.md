@@ -17,25 +17,60 @@ Reconcile `spec/*.md` and `CLAUDE.md` against the current state of the code.
 - `spec/` directory exists and has at least one `*.md`. If not → tell the user to run `/adam:setup` and stop.
 - `CLAUDE.md` exists with a spec index table.
 
-## Pre-step — clean the gitnexus auto-injection
+## Pre-step 1 — clean the gitnexus auto-injection
 
 `gitnexus analyze` re-injects a `<!-- gitnexus:start -->...<!-- gitnexus:end -->` block into `CLAUDE.md` on every fresh run. Before delegating to the agent, run the strip script — idempotent and silent when the markers aren't present:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/strip-gitnexus-block.sh "$PWD"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/utils/strip-gitnexus-block.sh "$PWD"
 ```
 
 This keeps the CLAUDE.md the agent reads in sync with what adam actually authors.
 
+## Pre-step 2 — anchor drift check (no-arg mode only)
+
+When invoked without a path argument, run the anchor-drift script first to scope the agent's work to specs that actually need refreshing. **Do not interpret these steps yourself; call the script.**
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/tools/check-anchors.sh "$PWD"
+```
+
+The script walks every `spec/**/*.md`, parses the optional `anchors:` block list in frontmatter, asks GitNexus to resolve each entry, and emits JSON:
+
+```
+{
+  "summary":   { "total", "drifted", "clean", "unchecked" },
+  "drifted":   [ { "spec", "missing": [{ anchor, file, symbol, kind }] } ],
+  "clean":     [ { "spec", "anchor_count" } ],
+  "unchecked": [ { "spec", "reason" } ]
+}
+```
+
+Hold the JSON. Then:
+
+- **`drifted` specs** → known stale, dispatch the agent with a focused prompt naming the broken anchors (cheaper than a full re-read).
+- **`clean` specs** → all anchors still resolve; **skip** them entirely.
+- **`unchecked` specs** → no machine-readable anchors yet; fall back to the legacy "agent re-reads everything" path for these only.
+
+If `status != "ok"` (no spec/, gitnexus missing, repo not indexed), surface the error and stop.
+
 ## Process
 
-Delegate to the `adam` sub-agent. For an all-spec audit:
+Delegate to the `adam` sub-agent. The dispatch shape depends on what Pre-step 2 returned (no-arg mode) or on the user's path argument (single-spec mode).
 
-> Run a drift refresh on this project. Read CLAUDE.md and every spec/*.md. For each spec, open the code it claims to describe and verify file paths, function/class names, and key constants. The code wins disputes. Rewrite stale specs in place. Delete specs whose subject was removed. Merge specs whose topics overlap > ~50%. Refresh spec/INDEX.md and the CLAUDE.md spec table, re-counting tokens. Use the spec-lint MCP to verify the result.
+**No-arg mode, drift-driven:**
 
-For a single-spec update, narrow the prompt:
+> Run a scoped drift refresh. The anchor checker has identified the following specs as drifted (anchors no longer resolve in the GitNexus graph):
+>
+> ```json
+> <drifted block from check-anchors.sh>
+> ```
+>
+> For each drifted spec, open the code it describes, fix the broken anchors (the missing entries above are the seeds), and rewrite stale prose to match. **Do not touch the specs in `clean`** — their anchors all resolve, treat them as up-to-date. For specs in `unchecked` (no `anchors:` frontmatter yet), do a normal full re-read and add an `anchors:` block list to the frontmatter as you go so future runs can fast-path them. Refresh spec/INDEX.md and the CLAUDE.md spec table, re-counting tokens. Use the spec-lint MCP to verify the result.
 
-> Update spec/<topic>.md against the current code at <paths>. Then refresh the row in spec/INDEX.md and CLAUDE.md (re-count tokens for that spec).
+**Single-spec mode** (user passed a path):
+
+> Update spec/<topic>.md against the current code at <paths>. Then refresh the row in spec/INDEX.md and CLAUDE.md (re-count tokens for that spec). If the spec already has an `anchors:` frontmatter block, refresh it to match the new code state.
 
 ## Drift signals to look for
 

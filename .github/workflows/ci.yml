@@ -37,5 +37,5 @@ jobs:
 
       - name: Smoke-test MCP servers
         run: |
-          chmod +x scripts/smoke-test.sh
-          NODE_PATH="$PWD/node_modules" ./scripts/smoke-test.sh "$PWD"
+          chmod +x scripts/tests/smoke-test.sh
+          NODE_PATH="$PWD/node_modules" ./scripts/tests/smoke-test.sh "$PWD"

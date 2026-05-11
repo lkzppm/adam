@@ -43,7 +43,7 @@ if [ "$cond" = "with-adam" ]; then
   rsync -a "$CANONICAL_SPEC_DIR/" "$dir/spec/"
   cp "$CANONICAL_MCP_JSON" "$dir/.mcp.json"
   ( cd "$dir" && gitnexus analyze --skip-git >/dev/null 2>&1 )
-  bash "$ROOT/scripts/strip-gitnexus-block.sh" "$dir" >/dev/null 2>&1 || true
+  bash "$ROOT/scripts/utils/strip-gitnexus-block.sh" "$dir" >/dev/null 2>&1 || true
   rm -f "$dir/AGENTS.md"
   cp "$CANONICAL_CLAUDE_MD" "$dir/CLAUDE.md"
 fi

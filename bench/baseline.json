@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "captured": "2026-05-10",
+  "model": "claude-sonnet-4-6",
+  "subset_rationale": "Two highest-signal tasks per family — covers all three benchmark families with a single ~6-task run that costs roughly one-fifth of the full 30-task bench.",
+  "subset_task_ids": ["T1", "T1f", "T2", "T2c", "T3c", "T3f"],
+  "regression_threshold_pct": 10,
+  "with_adam": {
+    "T1":  { "family": "orient",   "cost_usd": 0.1350729 },
+    "T1f": { "family": "orient",   "cost_usd": 0.10608815 },
+    "T2":  { "family": "additive", "cost_usd": 0.10067135 },
+    "T2c": { "family": "additive", "cost_usd": 0.0835769 },
+    "T3c": { "family": "multi",    "cost_usd": 0.35130855 },
+    "T3f": { "family": "multi",    "cost_usd": 0.5390954 }
+  },
+  "by_family_mean_usd": {
+    "orient":   0.12058,
+    "additive": 0.09212,
+    "multi":    0.44520
+  }
+}

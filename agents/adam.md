@@ -83,9 +83,9 @@ spec/
 ├── INDEX.md                      # top-level index (one row per spec)
 ├── overview.md                   # high-level "what is this project"
 ├── rules/                        # adam workflow rules — IDENTICAL across projects
-│   ├── refactor.md               # written by scripts/write-spec-rules.sh
-│   ├── additive.md               # written by scripts/write-spec-rules.sh
-│   └── orient.md                 # written by scripts/write-spec-rules.sh
+│   ├── refactor.md               # written by scripts/template/write-spec-rules.sh
+│   ├── additive.md               # written by scripts/template/write-spec-rules.sh
+│   └── orient.md                 # written by scripts/template/write-spec-rules.sh
 ├── project/                      # project-specific conventions
 │   ├── frontend.md               # frontend style / component patterns (if applicable)
 │   ├── backend.md                # backend layering / service patterns (if applicable)
@@ -101,7 +101,7 @@ spec/
 These propagate the bench-validated workflow behavior. **Don't generate them yourself** — call the deterministic script:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/write-spec-rules.sh "$PWD"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/template/write-spec-rules.sh "$PWD"
 ```
 
 The script copies `templates/spec-rules/*.md` from the plugin into `<project>/spec/rules/`. Runs idempotently. Currently three files: `refactor.md` (cross-file refactor recipe), `additive.md` (adding new functionality), `orient.md` (read-only Q&A).
@@ -131,10 +131,15 @@ name: <topic>
 description: <one-line summary used by spec-create/update for relevance>
 tags: [<a few>]
 updated: YYYY-MM-DD
+anchors:
+  - <file>:<symbol>                # 1 colon: file + symbol, gitnexus disambiguates
+  - <Kind>:<file>:<symbol>         # 2 colons: full UID, zero-ambiguity
 ---
 ```
 
 No `agents:` lists. No baked-in token counts (they're refreshed live in CLAUDE.md and INDEX).
+
+The `anchors:` block list is the **machine-readable companion** to the spec's markdown anchors table. It's what `scripts/tools/check-anchors.sh` parses to fast-path drift detection in `/adam:spec-update`: every entry is sent to GitNexus, and the spec is only flagged stale if at least one anchor no longer resolves. Specs without an `anchors:` frontmatter block fall back to the legacy "agent re-reads everything" path. Add an entry per top-level symbol the spec is *about*, not for every name it mentions in passing — the goal is a small, stable set that drives drift signal.
 
 If you're tempted to write more than ~5000 tokens in one spec, split it.
 
@@ -195,7 +200,7 @@ Run these in parallel before writing anything:
 The parent `setup` skill dispatches you for spec scaffolding **only**. Do **NOT** write `CLAUDE.md` (that's the finalize mode), do **NOT** write to `.claude/` (that's interactive in P3+P4).
 
 1. Run detection (above).
-2. **`spec/rules/`** — *do not write yourself*. The parent `setup` skill called `scripts/write-spec-rules.sh` deterministically in P1. Trust it ran. Files: `refactor.md`, `additive.md`, `orient.md`.
+2. **`spec/rules/`** — *do not write yourself*. The parent `setup` skill called `scripts/template/write-spec-rules.sh` deterministically in P1. Trust it ran. Files: `refactor.md`, `additive.md`, `orient.md`.
 3. **`spec/project/`** — generate from detection. One file per convention area you can describe substantively: `frontend.md`, `backend.md`, `stack.md`, plus 0–2 area-specific (`infra.md`, `data-pipeline.md`, etc.). Cap ~5. Skip an area if you don't have enough signal to write something concrete.
 4. **`spec/concepts/`** — generate from detection. One file per non-trivial subsystem worth a deep walkthrough. Always include the **anchors block** (see structure section). If the subsystem has a recurring edit shape, include a `## How to add a new <thing>` recipe with a complete drop-in template — not a schematic. Cap ~6. Skip if the subsystem is trivial.
 5. **`spec/overview.md`** — high-level "what is this project". One paragraph + a runtime-shape diagram or paragraph if applicable. Don't repeat what's in `project/` or `concepts/`; this is a map, not a walkthrough.
@@ -232,22 +237,26 @@ Invoked by the `claude-add` skill (or by the `setup` skill for each accepted sug
 
 ## Algorithm — drift refresh
 
-1. Read `CLAUDE.md` and every `spec/*.md`. Run `git log --oneline -30`.
-2. For each spec, open the code it claims to describe. Verify file paths exist, function/class names match, constants match. The code wins disputes.
-3. Rewrite stale specs in place. Delete specs whose subject has been removed from the code.
-4. If two specs describe the same thing (overlap > ~50%), merge into one.
-5. Refresh `spec/INDEX.md` and the table in `CLAUDE.md`. Re-count tokens.
-6. Run `spec-lint`. Fix what it reports.
-7. Report: rewrote / deleted / left-alone, plus any drift you intentionally chose not to fix (with reason).
+The parent `spec-update` skill runs `scripts/tools/check-anchors.sh` first and passes you a JSON briefing partitioning specs into `drifted` / `clean` / `unchecked`. Use it to scope work — don't re-validate `clean` specs, and only do the full code re-read for `unchecked` specs (which have no `anchors:` frontmatter yet).
+
+1. Read `CLAUDE.md`. For every spec mentioned in `drifted` and `unchecked`, read the spec body. Run `git log --oneline -30` for recent-intent context.
+2. For each `drifted` spec, the briefing's `missing[]` list names the broken anchors — open just those code paths first, then expand. Fix each missing anchor by either (a) updating it to the symbol's new file/name, or (b) removing the spec section that depended on it.
+3. For each `unchecked` spec, do the full re-read against the code, **and add an `anchors:` frontmatter block list** as you rewrite — that way the next run fast-paths it.
+4. Rewrite stale prose in place. Delete specs whose subject has been removed from the code entirely.
+5. If two specs describe the same thing (overlap > ~50%), merge into one.
+6. Refresh `spec/INDEX.md` and the table in `CLAUDE.md`. Re-count tokens.
+7. Run `spec-lint`. Fix what it reports.
+8. Report: rewrote / deleted / left-alone, plus any drift you intentionally chose not to fix (with reason).
 
 ## Algorithm — add a spec
 
 1. Take the requested topic. Confirm it's not already covered (by description match, not just filename).
-2. Open the relevant code so the spec is grounded in real symbols/paths.
-3. Write `spec/<topic>.md` with the standard frontmatter and substantive content.
-4. Add a row to `spec/INDEX.md` and the CLAUDE.md table. Pick the right reading-order position (subsystem specs after `overview.md`, integration specs after subsystems).
-5. Run `spec-lint` and `token-count`. Fix issues.
-6. Report.
+2. If the parent skill (`spec-create`) supplied a **GitNexus preflight briefing** in the prompt — a JSON block with `candidates[]`, `summary`, `search_processes` — treat it as canonical. Do **not** re-grep symbols already resolved there; do **not** call `gitnexus_context` on names already covered. The briefing's `candidates[].file:line` triples are the seed for the spec's anchors block.
+3. Open the relevant code so the spec is grounded in real symbols/paths. Use the briefing's `primary_files` as the read list; expand only if the briefing is empty.
+4. Write `spec/<topic>.md` with the standard frontmatter and substantive content.
+5. Add a row to `spec/INDEX.md` and the CLAUDE.md table. Pick the right reading-order position (subsystem specs after `overview.md`, integration specs after subsystems).
+6. Run `spec-lint` and `token-count`. Fix issues.
+7. Report.
 
 ## Guardrails
 

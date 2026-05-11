@@ -31,7 +31,7 @@ If `spec/` already contains content and `--force` was not passed, **stop and tel
 GitNexus is a hard prerequisite — adam's anchors depend on a current `.gitnexus/` index. **Do not interpret these steps yourself; call the script.** It is idempotent and parseable.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/setup-graph.sh "$PWD"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/tools/setup-graph.sh "$PWD"
 ```
 
 The script:
@@ -50,7 +50,7 @@ If `status != "ok"`, surface the script's stderr and stop — every later phase 
 Copy the plugin's templated workflow rules into the project. **Do not interpret these steps yourself; call the script.**
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/write-spec-rules.sh "$PWD"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/template/write-spec-rules.sh "$PWD"
 ```
 
 The script copies `templates/spec-rules/*.md` into `<project>/spec/rules/` (currently `refactor.md`, `additive.md`, `orient.md`). It emits `{"status":"ok","dest":"...","files":3}`.

@@ -11,10 +11,10 @@ set -euo pipefail
 
 ROOT="${1:-.}"
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-SOURCE="$PLUGIN_ROOT/templates/spec-rules"
+SOURCE="$PLUGIN_ROOT/templates/rules"
 DEST="$ROOT/spec/rules"
 
-[ -d "$SOURCE" ] || { echo "templates/spec-rules not found at $SOURCE" >&2; exit 1; }
+[ -d "$SOURCE" ] || { echo "templates/rules not found at $SOURCE" >&2; exit 1; }
 [ -d "$ROOT" ] || { echo "project root not found at $ROOT" >&2; exit 1; }
 
 mkdir -p "$DEST"

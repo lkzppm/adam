@@ -1,19 +1,27 @@
 ---
 name: spec-create
-description: Add a single new spec/<topic>.md when a fresh concept, subsystem, or integration enters the project. Use when the user runs /adam:spec-create, /spec-create, or asks to "add a spec for X", "document the new <subsystem>", "create a spec covering <topic>", "we just added <X>, write its spec". Will refuse if spec-driven scaffolding (`spec/INDEX.md`, `CLAUDE.md`) is missing — points the user at /adam:setup instead.
+description: Add a single new spec/<topic>.md when a fresh concept, subsystem, or integration enters the project — OR add a pipeline-spec (HTML workflow walkthrough) at spec/pipelines/<topic>.html when the user passes --pipeline or asks for a "flow chart", "pipeline", "workflow diagram". Use when the user runs /adam:spec-create, /spec-create, or asks to "add a spec for X", "document the new <subsystem>", "create a spec covering <topic>", "we just added <X>, write its spec", "draw a pipeline for <flow>", "add a workflow walkthrough for <X>". Will refuse if spec-driven scaffolding (`spec/INDEX.md`, `CLAUDE.md`) is missing — points the user at /adam:setup instead.
 ---
 
 # spec-create
 
-Add ONE new spec to the project's spec set, then re-weave the index.
+Add ONE new spec to the project's spec set, then re-weave the index (markdown specs) or refresh the viewer manifest (pipeline-specs).
+
+## Mode selection — markdown spec vs pipeline-spec
+
+Inspect `$ARGUMENTS` for `--pipeline` (or interpret intent: "pipeline", "flow chart", "workflow walkthrough", "visual diagram of how X moves"). Two distinct flows below — they share Step 1 only.
+
+- **Markdown spec** (default): grounded in symbols, anchored to code, lives in `spec/<topic>.md`, participates in the spec index + audit. Use the GitNexus preflight.
+- **Pipeline-spec** (`--pipeline`): user-facing HTML walkthrough of a workflow, lives in `spec/pipelines/<topic>.html`, **does not** appear in `spec/INDEX.md` or the CLAUDE.md table, and is **exempt** from spec-audit / spec-lint. Skip the preflight entirely (a workflow rarely maps to a single symbol; forcing the preflight produces empty briefings).
 
 ## Preconditions
 
 - `spec/INDEX.md` must exist. If it doesn't → tell the user to run `/adam:setup` first and stop.
 - `CLAUDE.md` must contain a spec index table. If it doesn't → same.
 - The user must have specified (or implied) a topic. If unclear, ask.
+- **Pipeline mode** additionally requires `spec/pipelines.html` to exist (installed by `/adam:setup` Phase 2b). If it's missing, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/template/write-pipelines-viewer.sh "$PWD"` first to install it, then continue.
 
-## Process
+## Process — markdown spec (default)
 
 1. Confirm the topic isn't already covered. Read every existing `spec/*.md` description; if there's a clear match, propose updating that spec instead.
 
@@ -61,6 +69,48 @@ Add ONE new spec to the project's spec set, then re-weave the index.
 
 6. Surface the agent's report.
 
+## Process — pipeline-spec (`--pipeline`)
+
+1. Confirm there isn't already a `spec/pipelines/<slug>.html` describing the same workflow (sidebar listing in `spec/pipelines.html` is the canonical view — read the inlined manifest block). If there is, propose `/adam:spec-update spec/pipelines/<existing>.html` instead.
+
+2. Pick a kebab-case `<slug>` from the topic. Today's date is the `updated` field.
+
+3. Collect a **light path-hint set** from the user's `$ARGUMENTS` and (if useful) one or two `gitnexus query` calls. Do **not** call `scripts/tools/spec-preflight.sh` — that script is shaped for symbol-anchored markdown specs and produces noisy/empty output for cross-cutting workflows. Path hints feed the agent's brief; they are not embedded in the file.
+
+4. Read the seed template:
+
+   ```bash
+   cat ${CLAUDE_PLUGIN_ROOT}/templates/pipelines/pipeline.html
+   ```
+
+5. Delegate to the `adam` sub-agent in pipeline-spec mode:
+
+   > Add a pipeline-spec for `<topic>` at `spec/pipelines/<slug>.html`. The seed template below is your structural starting point — replace every `<PLACEHOLDER>` and the placeholder Mermaid `flowchart TD` block with the actual workflow. Keep the section order (Flow → Brief → Steps → Touched surfaces → Failure modes); drop sections that don't apply rather than inventing content. The file MUST stand alone in a browser (it loads Mermaid from a CDN), and its `<script type="application/adam-pipeline+json" id="pipeline-meta">` block MUST stay parseable JSON — the manifest updater reads it.
+   >
+   > Path hints from the user (use these to ground the Steps + Touched surfaces sections):
+   >
+   > ```
+   > <path hints>
+   > ```
+   >
+   > Seed template (verbatim, replace placeholders):
+   >
+   > ```html
+   > <contents of templates/pipelines/pipeline.html>
+   > ```
+   >
+   > Do NOT touch `spec/INDEX.md` or the `CLAUDE.md` spec table — pipeline-specs live in `spec/pipelines.html`, not the markdown index.
+
+6. Once the file is written, refresh the viewer manifest:
+
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/scripts/tools/update-pipelines-manifest.sh "$PWD"
+   ```
+
+   The script walks `spec/pipelines/*.html`, extracts each file's `pipeline-meta` JSON, and rewrites the manifest block inside `spec/pipelines.html` between the `<!-- BEGIN MANIFEST -->` / `<!-- END MANIFEST -->` sentinels. If it reports any `errors[]` (e.g. malformed JSON in the new file), surface them and ask the agent to fix.
+
+7. Tell the user the path they can open in a browser: `spec/pipelines.html` (the viewer auto-selects the new pipeline if they pass `#<slug>` in the fragment) or `spec/pipelines/<slug>.html` (standalone view).
+
 ## Frontmatter for the new spec
 
 ```
@@ -88,3 +138,7 @@ In `INDEX.md` and the CLAUDE.md table:
 Show the agent's final report to the user. Then one line:
 
 > If this concept replaces or overlaps with an existing spec, run `/adam:spec-update` to reconcile.
+
+For pipeline-spec mode the "follow-up" line is instead:
+
+> Open `spec/pipelines.html` in a browser to navigate, or `spec/pipelines/<slug>.html` standalone. Re-run with `/adam:spec-update spec/pipelines/<slug>.html` when the workflow changes.

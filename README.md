@@ -64,7 +64,7 @@ Each slash command is a Claude Code **skill** — a `SKILL.md` that orchestrates
 ### `/setup` — first-time scaffolding
 Strict 8-phase pipeline. Two deterministic scripts front-load the boring work:
 - **`scripts/tools/setup-graph.sh`** — verifies `gitnexus` is on PATH, runs `gitnexus analyze` if `.gitnexus/` is missing, strips the auto-injected `<!-- gitnexus:start -->` block from `CLAUDE.md` (its prescriptive boilerplate measurably bias the model), and merges the `gitnexus` MCP entry into `.mcp.json` without clobbering existing servers. Emits a single JSON status line the skill parses.
-- **`scripts/template/write-spec-rules.sh`** — copies the plugin's `templates/spec-rules/*.md` into `<project>/spec/rules/` (the three workflow recipes that never change per project).
+- **`scripts/template/write-spec-rules.sh`** — copies the plugin's `templates/rules/*.md` into `<project>/spec/rules/` (the three workflow recipes that never change per project).
 
 Then the `adam` sub-agent scaffolds `spec/overview.md`, `spec/project/*`, `spec/concepts/*`, and `spec/INDEX.md`, returning the stack signals it detected. The skill builds three per-class `AskUserQuestion` menus (hooks, subagents, skills) from those signals, writes only the items you tick, generates `CLAUDE.md` last so it can reference the actual `.claude/` artifacts in scope, then runs the `spec-lint` MCP and prints a final brief.
 
@@ -74,6 +74,8 @@ Two deterministic scripts gather code-grounded context before the agent writes a
 - **`scripts/template/select-seed.sh`** — sniffs `package.json` deps, `pyproject.toml`, `requirements*.txt`, and `manage.py` to pick the right `templates/specs/<stack>.md` seed (currently `nextjs`, `hono`, `fastapi`, `django`). The seed enforces a consistent shape across specs — anchors block, How-to recipe, conventions list.
 
 The agent gets briefing + seed in one prompt, writes `spec/<topic>.md` with verified `file:line:symbol` anchors, then re-weaves `spec/INDEX.md` and the `CLAUDE.md` spec table (token counts via the `token-count` MCP).
+
+Pass `--pipeline` to write a **pipeline-spec** instead — a self-contained HTML walkthrough at `spec/pipelines/<topic>.html` with an embedded Mermaid flow chart, brief, step list, and failure-mode panel. Pipeline-specs are user-facing comprehension aids: they don't anchor to code symbols, they don't appear in `spec/INDEX.md` or the CLAUDE.md table, and they're exempt from `/spec-audit`. The plugin's `scripts/tools/update-pipelines-manifest.sh` re-scans `spec/pipelines/*.html` after each create/update and rewrites the inlined manifest in `spec/pipelines.html` (the global viewer — a static page with a sidebar, iframe pane, and search, openable directly via `file://`).
 
 ### `/spec-update [path]` — drift refresh
 Two deterministic scripts scope the agent's work to specs that actually need rewriting:
@@ -104,7 +106,7 @@ your-project/
 ├── .mcp.json                # gitnexus MCP entry (merged)
 ├── .gitnexus/               # graph index — gitignore if you prefer
 ├── spec/
-│   ├── INDEX.md             # one row per spec, all folders combined
+│   ├── INDEX.md             # one row per markdown spec, all folders combined
 │   ├── overview.md          # high-level "what is this project"
 │   ├── rules/               # adam workflow rules — IDENTICAL across projects
 │   │   ├── refactor.md      # cross-file refactor recipe
@@ -114,8 +116,11 @@ your-project/
 │   │   ├── frontend.md
 │   │   ├── backend.md
 │   │   └── stack.md
-│   └── concepts/            # deep walkthroughs of important subsystems
-│       └── <subsystem>.md   # each with an Anchors block + "How to add a new X" recipe
+│   ├── concepts/            # deep walkthroughs of important subsystems
+│   │   └── <subsystem>.md   # each with an Anchors block + "How to add a new X" recipe
+│   ├── pipelines.html       # global viewer (sidebar + iframe), opens via file://
+│   └── pipelines/           # user-facing HTML workflow walkthroughs (audit-exempt)
+│       └── <workflow>.html  # embedded Mermaid flow chart + brief + steps
 └── .claude/                 # only what you opted into
     ├── agents/<name>.md
     ├── hooks/<name>.sh

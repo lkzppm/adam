@@ -85,7 +85,7 @@ Inspect `$ARGUMENTS` for `--pipeline` (or interpret intent: "pipeline", "flow ch
 
 5. Delegate to the `adam` sub-agent in pipeline-spec mode:
 
-   > Add a pipeline-spec for `<topic>` at `spec/pipelines/<slug>.html`. The seed template below is your structural starting point — replace every `<PLACEHOLDER>` and the placeholder Mermaid `flowchart TD` block with the actual workflow. Keep the section order (Flow → Brief → Steps → Touched surfaces → Failure modes); drop sections that don't apply rather than inventing content. The file MUST stand alone in a browser (it loads Mermaid from a CDN), and its `<script type="application/adam-pipeline+json" id="pipeline-meta">` block MUST stay parseable JSON — the manifest updater reads it.
+   > Add a pipeline-spec for `<topic>` at `spec/pipelines/<slug>.html`. The seed template below is your structural starting point — replace every placeholder (`<PIPELINE_SLUG>` / `<PIPELINE_TITLE>` / `<one-line summary…>` / `<YYYY-MM-DD>` inside the JSON metadata block, plus `{{PIPELINE_TITLE}}` / `{{BRIEF}}` / `{{AREA}}` / `{{ACTOR}}` in the HTML body) and the placeholder Mermaid `flowchart TD` block with the actual workflow. Keep the section order (Flow → Brief → Steps → Touched surfaces → Failure modes); drop sections that don't apply rather than inventing content. The file MUST stand alone in a browser (it loads Mermaid from a CDN), and its `<script type="application/adam-pipeline+json" id="pipeline-meta">` block MUST stay parseable JSON — the manifest updater reads it.
    >
    > Path hints from the user (use these to ground the Steps + Touched surfaces sections):
    >

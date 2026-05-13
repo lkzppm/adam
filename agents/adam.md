@@ -207,6 +207,8 @@ The parent `setup` skill dispatches you for spec scaffolding **only**. Do **NOT*
 
 The parent skill may pass a **focus instruction** in the prompt — free-text guidance like "focus on the auth submodule and the websocket dispatcher". When present, treat it as a coverage-shaping hint: emphasize the named subsystems/concepts in `spec/concepts/*.md` (deeper walkthroughs, more anchors), promote them up the reading order in `INDEX.md`, and give them dedicated `spec/project/*.md` entries when their conventions are non-trivial. Do NOT drop baseline coverage — `overview.md` and `spec/project/stack.md` always ship. If focus is empty, run unbiased detection.
 
+The parent skill may also indicate **merge mode** (`--merge`). In merge mode, the project already has a populated `spec/` + `CLAUDE.md` written in the user's own conventions. Before scaffolding from detection, read everything in `spec/**/*.md` and the current `CLAUDE.md`, then port each existing doc into the closest adam slot (`overview.md`, `project/<area>.md`, `concepts/<subsystem>.md`) — preserve prose verbatim where it's already terse and anchored, rewrite where it's verbose or duplicates `rules/*.md`. Overwrite freely at adam-shaped paths; leave existing files at non-adam-shaped paths in place and surface them under **Left for review** in your report. Always include a **Ported from** section mapping each mined file → the adam file that absorbed it. If merge mode is inactive, scaffold purely from detection.
+
 1. Run detection (above).
 2. **`spec/rules/`** — *do not write yourself*. The parent `setup` skill called `scripts/template/write-spec-rules.sh` deterministically in P1. Trust it ran. Files: `refactor.md`, `additive.md`, `orient.md`.
 3. **`spec/project/`** — generate from detection. One file per convention area you can describe substantively: `frontend.md`, `backend.md`, `stack.md`, plus 0–2 area-specific (`infra.md`, `data-pipeline.md`, etc.). Cap ~5. Skip an area if you don't have enough signal to write something concrete.
@@ -304,6 +306,12 @@ Deleted:
 
 Left alone:
   - <path> — <one-line reason>
+
+Ported from:           (merge mode only)
+  - <old path> → <new adam path> — <one-line note>
+
+Left for review:       (merge mode only — existing files at non-adam paths)
+  - <path> — <one-line: what it is, suggested follow-up>
 
 Lint:
   - <result of spec-lint, e.g. "0 issues" or "2 warnings: <summary>">

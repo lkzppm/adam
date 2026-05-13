@@ -83,7 +83,8 @@ Delegate to the `adam` sub-agent in **scaffold-only** mode:
 >
 > Return:
 > 1. Standard report (Created/Updated/Lint/Notes)
-> 2. **Detection signals** — list the stack tags you observed (e.g. `nextjs`, `python+ruff`, `postgres+schema-sql`, `tailwindv4`, `docker-compose`, `tests-pytest`). The parent skill uses these to build the P3 menu candidates.
+> 2. **Detection signals** — list the stack tags you observed (e.g. `nextjs`, `python+ruff`, `postgres+schema-sql`, `tailwindv4`, `docker-compose`, `tests-pytest`). The parent skill uses these to build the P3 hook/subagent/skill menu candidates.
+> 3. **Candidate workflows** — identify **0–3** user-facing or operator-facing workflows worth a pipeline-spec walkthrough. Only surface flows you can substantiate from real code (an auth route, a checkout endpoint, a deploy script, a CRON job, a webhook handler, a queue consumer, a long-running pipeline). For each, return a small JSON-shaped record: `{slug: kebab-case, title: 1-line, description: 1-line, path_hints: [2-4 file paths most relevant to the flow]}`. **Do not pad.** If nothing obvious presents (read-only library, infrastructure shim, plugin), return an empty list. The parent skill turns this into the P3 pipelines menu — every candidate the user accepts becomes a `spec/pipelines/<slug>.html` written in P4.
 >
 > **Merge mode (`--merge`, may be inactive):** if the parent skill set `merge = true`, the project already has a populated `spec/` tree, a `CLAUDE.md` indexing it, and (often) a `.claude/` directory with hand-built automations — all following the user's own conventions, not adam's. Before writing anything, read every existing `spec/**/*.md`, the current `CLAUDE.md`, **and the existing `.claude/` directory** (`.claude/agents/*.md`, `.claude/skills/*/SKILL.md`, `.claude/hooks/*`, `.claude/settings.json`). For each existing spec doc, decide its closest adam slot: high-level project prose → `overview.md`; style/convention notes → `spec/project/<area>.md`; deep subsystem walkthroughs → `spec/concepts/<subsystem>.md` (add an anchors block grounded in real symbols); workflow flowcharts → list them in the report as candidates for `/adam:spec-create <topic> --pipeline` (do NOT auto-write pipeline-specs). **Drop** any content that duplicates the `spec/rules/*.md` recipes — they are project-agnostic and the parent skill already wrote them in P1. **Preserve verbatim** any prose that already follows adam's terse style; lightly rewrite the rest. Overwrite freely at adam-shaped paths (e.g. `spec/overview.md`, `spec/project/<area>.md`), but **do not delete** existing files at non-adam-shaped paths (e.g. `spec/random-notes.md`) — leave them and report them under **Left for review** so the user can promote them via `/adam:spec-create` or remove them by hand. For the `.claude/` inventory: do NOT modify anything inside `.claude/` — the parent skill owns those writes in P3+P4. Just enumerate what exists and what it does. In your final report, add a **Ported from** section listing each existing spec path you mined and which new file absorbed it, AND an **Existing automations** section listing every `.claude/agents/*.md` (with the agent's purpose from its frontmatter `description:`), every `.claude/skills/*/SKILL.md` (with its purpose), every `.claude/hooks/*` (with the matcher from `settings.json` if known), and any non-trivial top-level keys in `settings.json` (permissions, env, model). The parent skill consumes this inventory in P3 to filter out menu candidates whose target file already exists — so be exhaustive: every existing artifact must appear, named exactly as it lives on disk (kebab-case basenames).
 >
@@ -109,11 +110,11 @@ The script:
 
 Emits `{"status":"ok","viewer":"<path>","dir":"<path>","pipelines":N}`. Hold the count — surface it in the final brief.
 
-## Phase 3 — three per-class AskUserQuestion menus
+## Phase 3 — four per-class AskUserQuestion menus
 
-**This phase is mandatory.** Never write `.claude/` files without going through it. Even if you have one obvious recommendation, ask before creating.
+**This phase is mandatory.** Never write `.claude/` files or pipeline-specs without going through it. Even if you have one obvious recommendation, ask before creating.
 
-Build candidates from the detection signals the agent returned in P2. The reference matrix:
+Four candidate classes, four potential menus: **hooks**, **subagents**, **skills** (all drawn from the agent's `Detection signals`), and **pipelines** (drawn from the agent's `Candidate workflows`). Build candidates from the detection signals the agent returned in P2. The reference matrix for the first three:
 
 **Merge-mode filter (`--merge` only).** If the parent run is in merge mode, the agent's P2 report includes an **Existing automations** inventory listing every `.claude/agents/<name>.md`, `.claude/skills/<name>/SKILL.md`, and `.claude/hooks/<name>.*` already on disk. Before presenting any menu, drop every candidate whose target file already exists (e.g. inventory contains `.claude/agents/py-test-runner.md` → remove `py-test-runner` from the subagents menu). The user shouldn't be asked whether to install something they already have. After filtering, if a class has zero remaining candidates, **skip the menu silently** just as if no candidates had ever existed.
 
@@ -132,9 +133,9 @@ Build candidates from the detection signals the agent returned in P2. The refere
 
 Add stack-specific candidates beyond this matrix when the project clearly warrants them. Never invent generic options — every candidate has to map to a concrete file the agent will write in P4.
 
-### Build the three menus, present in order
+### Build the four menus, present in order
 
-For **each** of the three classes (`hooks`, then `subagents`, then `skills`), do the following:
+For **each** of the four classes (`hooks`, then `subagents`, then `skills`, then `pipelines`), do the following:
 
 1. If the class has zero candidates, **skip silently** — do not call `AskUserQuestion` with an empty list.
 2. If the class has one or more candidates, call `AskUserQuestion` with `multiSelect: true`. Title and header reflect the class.
@@ -186,6 +187,24 @@ AskUserQuestion({
 })
 ```
 
+**Pipelines menu** (only if the agent returned at least one `Candidate workflow`):
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Which workflows should adam draft as pipeline-specs (HTML walkthroughs with Mermaid flow charts)?",
+    header: "Pipelines",
+    multiSelect: true,
+    options: [
+      { label: "user-signup",    description: "User signup flow — from form submit through email confirmation. Writes spec/pipelines/user-signup.html." },
+      { label: "deploy-pipeline", description: "CI deploy from main → production. Writes spec/pipelines/deploy-pipeline.html." }
+    ]
+  }]
+})
+```
+
+Each pipeline option's `label` is the candidate `slug`; the `description` is the candidate's `description` plus the target file path so the user sees what gets written.
+
 Hold the user's selections — they drive P4. If the user selects nothing in a class, that class contributes nothing in P4.
 
 ### Rules for the menu UX
@@ -203,6 +222,13 @@ For each accepted item from the P3 menus, dispatch the `adam` sub-agent in **cla
 - **Hooks** → write the command body to `.claude/hooks/<kebab-name>.sh` (with `#!/usr/bin/env bash` + `set -euo pipefail`, then `chmod +x`), then merge a `{ "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/<kebab-name>.sh" }` entry into `.claude/settings.json` under the right matcher (read existing, splice in, write back). **Never inline command bodies into `settings.json`. Never overwrite — preserve unrelated hooks the user already has.**
 - **Sub-agents** → write `.claude/agents/<kebab-name>.md` with proper frontmatter (`name`, `description` enumerating trigger phrases, `model`, optional `tools`).
 - **Skills** → write `.claude/skills/<kebab-name>/SKILL.md` with frontmatter and substantive instructions.
+- **Pipelines** → dispatch the `adam` agent in pipeline-spec mode for each accepted workflow. Pass the candidate's `{slug, title, description, path_hints}` plus the contents of `${CLAUDE_PLUGIN_ROOT}/templates/pipelines/pipeline.html` as the seed. The agent fills every `<PLACEHOLDER>` token (slug, title, description, area, actor, date), rewrites the placeholder `flowchart TD` block with the actual workflow grounded in the path hints, replaces the brief / steps / touched-surfaces / failure-modes sections, and writes `spec/pipelines/<slug>.html`. **The `<script type="application/adam-pipeline+json" id="pipeline-meta">` JSON block MUST stay parseable** — the manifest updater reads it. Do NOT touch `spec/INDEX.md` or the CLAUDE.md spec table — pipeline-specs live in the viewer's manifest, not the markdown index. After **all** accepted pipelines are written (one batched refresh, not one per pipeline), run:
+
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/scripts/tools/update-pipelines-manifest.sh "$PWD"
+  ```
+
+  to refresh the sidebar in `spec/pipelines.html`. Surface any `errors[]` it reports and ask the agent to fix.
 
 Each file must be substantive — no placeholders, no stubs. If you cannot write something useful for an accepted item, drop it and note that in the final brief rather than ship a stub.
 
@@ -257,6 +283,7 @@ Specs
   spec/INDEX.md                     ── token-counted index
   spec/pipelines.html               ── viewer for HTML workflow walkthroughs (audit-exempt)
   spec/pipelines/                   ── <count> pipeline(s) so far
+      written this run:               <slugs you wrote in P4, or "none">
 
 Existing automations  (merge mode only — preserved as-is from .claude/)
   Hooks:     <names or "none">

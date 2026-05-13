@@ -159,13 +159,81 @@
         font-style: italic;
       }
 
-      .mermaid {
+      /* ── Mermaid container ─────────────────────────────────── */
+      .diagram-frame {
+        position: relative;
         background: var(--bg-elevated);
         border: 1px solid var(--border);
-        padding: 36px 24px;
-        overflow-x: auto;
-        text-align: center;
+        height: 560px;
+        overflow: hidden;
+      }
+      .diagram-frame .mermaid {
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        cursor: grab;
         font-family: var(--mono);
+        display: block;
+        color: transparent; /* hide raw source until mermaid replaces it */
+      }
+      .diagram-frame .mermaid:active {
+        cursor: grabbing;
+      }
+      .diagram-frame .mermaid svg {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: none;
+        display: block;
+      }
+      .diagram-frame .diagram-hint {
+        position: absolute;
+        top: 12px;
+        left: 14px;
+        font-family: var(--serif);
+        font-style: italic;
+        font-size: 11px;
+        color: var(--ink-dim);
+        pointer-events: none;
+        opacity: 0.9;
+        transition: opacity 400ms ease;
+      }
+      .diagram-frame.interacted .diagram-hint {
+        opacity: 0;
+      }
+      .diagram-controls {
+        position: absolute;
+        bottom: 12px;
+        right: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        background: var(--bg);
+        border: 1px solid var(--border-strong);
+        overflow: hidden;
+        z-index: 2;
+      }
+      .diagram-controls button {
+        width: 30px;
+        height: 30px;
+        background: var(--bg);
+        border: 0;
+        color: var(--ink-soft);
+        font-family: var(--serif);
+        font-size: 16px;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0;
+        transition:
+          color 120ms ease,
+          background 120ms ease;
+      }
+      .diagram-controls button:hover {
+        color: var(--accent-cool);
+        background: var(--bg-elevated);
+      }
+      .diagram-controls button:focus-visible {
+        outline: 1px solid var(--accent-cool);
+        outline-offset: -1px;
       }
 
       .steps {
@@ -321,22 +389,48 @@
     <main>
       <section>
         <h2>Flow</h2>
-        <div class="mermaid">
-          flowchart TD U(["User runs /adam:setup"]) --> A["Parse args"] A --> P0{"P0 · gitnexus on
-          PATH?"} P0 -- "no" --> X0(["Stop · install gitnexus"]) P0 -- "yes" -->
-          I["setup-graph.sh<br />index · strip block · merge MCP"] I --> P1["P1 · copy
-          templates/rules/*.md<br />spec/rules/"] P1 --> G{"spec/ already populated?"} G -- "empty"
-          --> P2["P2 · agent scaffolds<br />overview · project · concepts · INDEX"] G -- "populated,
-          no flag" --> X1(["Stop · use /spec-update, --merge, or --force"]) G -- "merge mode" -->
-          P2M["P2 merge-mode<br />port existing spec/ + CLAUDE.md<br />into adam's slots"] G --
-          "force mode" --> P2 P2 --> P2b["P2b · install spec/pipelines.html<br />+ empty
-          spec/pipelines/"] P2M --> P2b P2b --> P3["P3 · three menus<br />hooks · subagents ·
-          skills"] P3 --> P4["P4 · write picked items<br />merge .claude/settings.json"] P4 -->
-          P5["P5 · agent writes CLAUDE.md<br />mirrors INDEX.md"] P5 --> P6{"P6 · spec-lint clean?"}
-          P6 -- "errors" --> F["Re-dispatch with error list"] F --> P6 P6 -- "clean" --> P7["P7 ·
-          session-token-usage.sh"] P7 --> E(["Print brief"]) classDef stop
-          fill:#150808,stroke:#5a3030,color:#e0c8c8 classDef done
-          fill:#0a1a0a,stroke:#3a5a3a,color:#c8e0c8 class X0,X1 stop class E done
+        <div class="diagram-frame">
+          <span class="diagram-hint">drag to pan · scroll to zoom</span>
+          <!-- prettier-ignore -->
+          <div class="mermaid">
+flowchart TD
+  U(["User runs /adam:setup"]) --> A["Parse args"]
+  A --> P0{"P0 · gitnexus on PATH?"}
+  P0 -- "no"  --> X0(["Stop · install gitnexus"])
+  P0 -- "yes" --> I["setup-graph.sh<br/>index · strip block · merge MCP"]
+  I --> P1["P1 · copy templates/rules/*.md<br/>→ spec/rules/"]
+  P1 --> G{"spec/ already populated?"}
+  G -- "empty"             --> P2["P2 · agent scaffolds<br/>overview · project · concepts · INDEX"]
+  G -- "populated, no flag" --> X1(["Stop · use /spec-update, --merge, or --force"])
+  G -- "merge mode"        --> P2M["P2 merge-mode<br/>port existing spec/ + CLAUDE.md<br/>into adam's slots"]
+  G -- "force mode"        --> P2
+  P2  --> P2b["P2b · install spec/pipelines.html<br/>+ empty spec/pipelines/"]
+  P2M --> P2b
+  P2b --> P3["P3 · three menus<br/>hooks · subagents · skills"]
+  P3  --> P4["P4 · write picked items<br/>merge .claude/settings.json"]
+  P4  --> P5["P5 · agent writes CLAUDE.md<br/>mirrors INDEX.md"]
+  P5  --> P6{"P6 · spec-lint clean?"}
+  P6 -- "errors" --> F["Re-dispatch with error list"]
+  F  --> P6
+  P6 -- "clean"  --> P7["P7 · session-token-usage.sh"]
+  P7 --> E(["Print brief"])
+
+  classDef stop fill:#150808,stroke:#5a3030,color:#e0c8c8
+  classDef done fill:#0a1a0a,stroke:#3a5a3a,color:#c8e0c8
+  class X0,X1 stop
+  class E done
+          </div>
+          <div class="diagram-controls" role="group" aria-label="Diagram zoom controls">
+            <button type="button" data-action="zoom-in" title="Zoom in" aria-label="Zoom in">
+              +
+            </button>
+            <button type="button" data-action="zoom-out" title="Zoom out" aria-label="Zoom out">
+              −
+            </button>
+            <button type="button" data-action="reset" title="Reset view" aria-label="Reset view">
+              ↺
+            </button>
+          </div>
         </div>
       </section>
 
@@ -569,9 +663,10 @@
     <footer>and the rules he set, were not for the place — but for the work done within it.</footer>
 
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
     <script>
       mermaid.initialize({
-        startOnLoad: true,
+        startOnLoad: false,
         theme: "base",
         themeVariables: {
           darkMode: true,
@@ -592,6 +687,60 @@
         },
         flowchart: { htmlLabels: true, curve: "basis", padding: 20 },
         securityLevel: "loose",
+      });
+
+      // Render each Mermaid block, then make every .diagram-frame pan/zoomable.
+      mermaid.run({ querySelector: ".mermaid" }).then(() => {
+        document.querySelectorAll(".diagram-frame").forEach((frame) => {
+          const svg = frame.querySelector(".mermaid svg");
+          if (!svg || typeof svgPanZoom !== "function") return;
+
+          svg.removeAttribute("width");
+          svg.removeAttribute("height");
+          svg.style.maxWidth = "none";
+          svg.style.width = "100%";
+          svg.style.height = "100%";
+
+          const pz = svgPanZoom(svg, {
+            zoomEnabled: true,
+            panEnabled: true,
+            controlIconsEnabled: false,
+            dblClickZoomEnabled: false,
+            mouseWheelZoomEnabled: true,
+            preventMouseEventsDefault: true,
+            fit: true,
+            center: true,
+            minZoom: 0.3,
+            maxZoom: 8,
+            zoomScaleSensitivity: 0.35,
+          });
+
+          const dim = () => frame.classList.add("interacted");
+          svg.addEventListener("pointerdown", dim, { once: true });
+          svg.addEventListener("wheel", dim, { once: true });
+
+          frame.querySelectorAll(".diagram-controls button").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const a = btn.dataset.action;
+              if (a === "zoom-in") pz.zoomIn();
+              else if (a === "zoom-out") pz.zoomOut();
+              else if (a === "reset") {
+                pz.resetZoom();
+                pz.center();
+                pz.fit();
+                pz.center();
+              }
+              dim();
+            });
+          });
+
+          const ro = new ResizeObserver(() => {
+            pz.resize();
+            pz.fit();
+            pz.center();
+          });
+          ro.observe(frame);
+        });
       });
     </script>
   </body>

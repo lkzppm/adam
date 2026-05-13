@@ -205,6 +205,8 @@ Run these in parallel before writing anything:
 
 The parent `setup` skill dispatches you for spec scaffolding **only**. Do **NOT** write `CLAUDE.md` (that's the finalize mode), do **NOT** write to `.claude/` (that's interactive in P3+P4).
 
+The parent skill may pass a **focus instruction** in the prompt — free-text guidance like "focus on the auth submodule and the websocket dispatcher". When present, treat it as a coverage-shaping hint: emphasize the named subsystems/concepts in `spec/concepts/*.md` (deeper walkthroughs, more anchors), promote them up the reading order in `INDEX.md`, and give them dedicated `spec/project/*.md` entries when their conventions are non-trivial. Do NOT drop baseline coverage — `overview.md` and `spec/project/stack.md` always ship. If focus is empty, run unbiased detection.
+
 1. Run detection (above).
 2. **`spec/rules/`** — *do not write yourself*. The parent `setup` skill called `scripts/template/write-spec-rules.sh` deterministically in P1. Trust it ran. Files: `refactor.md`, `additive.md`, `orient.md`.
 3. **`spec/project/`** — generate from detection. One file per convention area you can describe substantively: `frontend.md`, `backend.md`, `stack.md`, plus 0–2 area-specific (`infra.md`, `data-pipeline.md`, etc.). Cap ~5. Skip an area if you don't have enough signal to write something concrete.

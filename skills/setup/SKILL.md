@@ -19,6 +19,15 @@ P6  spec-lint verify   ── MCP call, surface + try to fix
 P7  final brief        ── enumerate the features now active
 ```
 
+## Arguments
+
+Parse `$ARGUMENTS` before phase 0:
+
+- `--force` token → set `force = true`. Allows the run to proceed even if `spec/` already has content.
+- Everything else (after stripping `--force`) → trim, treat the remainder as a **focus instruction**. The user is telling you which subsystems, modules, or concepts to emphasize when picking what to write in `spec/project/*` and `spec/concepts/*`. Common shapes: `"focus on the auth submodule and the websocket dispatcher"`, `"focus: payments + the migration runner"`, `"prioritize the rendering pipeline"`. Hold the raw text — it is passed verbatim into the P2 agent prompt.
+
+If no focus text is present, the focus instruction is empty and P2 runs in unbiased detection mode.
+
 ## When to run
 
 - Repo has no `spec/`, OR
@@ -74,6 +83,8 @@ Delegate to the `adam` sub-agent in **scaffold-only** mode:
 > Return:
 > 1. Standard report (Created/Updated/Lint/Notes)
 > 2. **Detection signals** — list the stack tags you observed (e.g. `nextjs`, `python+ruff`, `postgres+schema-sql`, `tailwindv4`, `docker-compose`, `tests-pytest`). The parent skill uses these to build the P3 menu candidates.
+>
+> **Focus instruction from the user (may be empty):** `<focus instruction>`. If non-empty, bias your coverage decisions toward the named subsystems/concepts — write deeper `spec/concepts/<subsystem>.md` pages for them, give them a `spec/project/*.md` entry if the conventions are non-trivial, and put them higher in the reading order in `INDEX.md`. **Do not drop baseline coverage** (`overview.md` and `spec/project/stack.md` are always required). If focus is empty, run unbiased detection.
 
 Surface the agent's report. If the agent reports failure, do not proceed to P2b.
 

@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  adam pipelines viewer — copied verbatim by write-pipelines-viewer.sh into
+  adam pipelines viewer — copied by write-pipelines-viewer.sh into
   <project>/spec/pipelines.html. Lists every pipeline-spec under
   spec/pipelines/ and lets the user navigate between them in an iframe.
 
@@ -10,12 +10,20 @@
 
   Inlined (not fetched) on purpose: the viewer must work when opened
   directly via file:// URLs, where fetch() is blocked by default.
+
+  Placeholders substituted at install time:
+    {{ADAM_PROJECT_NAME}}    → detected project name (package.json → pyproject.toml → Cargo.toml → basename)
+    {{ADAM_BANNER_DATA_URI}} → base64 data URI of public/AdamBannerBlackShort.png
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Pipelines — project workflows</title>
+<title>{{ADAM_PROJECT_NAME}} · pipelines</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
 <!-- BEGIN MANIFEST -->
 <script id="pipelines-manifest" type="application/json">
@@ -28,115 +36,263 @@
 
 <style>
   :root {
-    --bg: #0f1115;
-    --panel: #161922;
-    --panel-2: #1d212c;
-    --ink: #e6e8ee;
-    --ink-soft: #a4abbb;
-    --ink-dim: #6c7287;
-    --accent: #7aa2ff;
-    --accent-soft: #2a3654;
-    --border: #2a2f3d;
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --bg:            #000000;
+    --bg-elevated:   #0a0a0a;
+    --bg-elevated-2: #111111;
+    --border:        #1c1c1c;
+    --border-strong: #2a2a2a;
+    --ink:           #f0f0f0;
+    --ink-soft:      #9a9a9a;
+    --ink-dim:       #555555;
+    --accent:        #ffffff;
+    --accent-cool:   #7aa2ff;  /* small blue details */
+    --serif:  'Newsreader', 'Source Serif Pro', Georgia, serif;
+    --sans:   'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   }
+  * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); }
-  body { display: grid; grid-template-columns: 320px 1fr; grid-template-rows: 56px 1fr; height: 100vh; overflow: hidden; }
+  body {
+    font-family: var(--sans);
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    grid-template-rows: 64px 1fr 36px;
+    height: 100vh; overflow: hidden;
+  }
 
+  /* ── Topbar ─────────────────────────────────────────────── */
   .topbar {
     grid-column: 1 / -1;
-    display: flex; align-items: center; gap: 12px;
-    padding: 0 18px; border-bottom: 1px solid var(--border);
-    background: linear-gradient(180deg, #131725 0%, #0f1115 100%);
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 22px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
   }
-  .topbar .brand { font-weight: 600; letter-spacing: -0.01em; }
-  .topbar .brand .dot { color: var(--accent); }
-  .topbar .crumb { color: var(--ink-soft); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
-  .topbar .spacer { flex: 1; }
-  .topbar input[type=search] {
-    background: var(--panel); border: 1px solid var(--border);
-    color: var(--ink); padding: 7px 12px; border-radius: 6px;
-    width: 240px; font-size: 13px;
+  .brand { display: inline-flex; align-items: baseline; gap: 4px; }
+  .brand .project {
+    font-family: var(--serif); font-size: 22px; font-weight: 500;
+    letter-spacing: -0.01em; color: var(--ink);
   }
-  .topbar input[type=search]:focus { outline: 1px solid var(--accent); }
+  .brand .suffix {
+    font-family: var(--sans); font-size: 14px; font-weight: 400;
+    color: var(--ink-soft); letter-spacing: 0.01em;
+  }
+  .spacer { flex: 1; }
 
-  aside.sidebar {
-    border-right: 1px solid var(--border);
-    overflow-y: auto; background: #0c0e15;
+  /* Powered-by mark + GH button */
+  .powered-by { display: inline-flex; align-items: center; gap: 14px; }
+  .powered-by .adam-attribution {
+    display: inline-flex; align-items: center; gap: 0;
+    text-decoration: none;
   }
+  .powered-by .label {
+    font-family: var(--serif); font-style: italic; font-size: 11px;
+    color: var(--ink-dim); letter-spacing: 0.06em;
+    margin-right: 2px;
+  }
+  .powered-by .adam-attribution { opacity: 0.6; transition: opacity 160ms ease; }
+  .powered-by .adam-attribution:hover { opacity: 1; }
+  .adam-mark { display: inline-block; line-height: 0; }
+  .adam-mark img {
+    height: 26px; width: auto; display: block;
+  }
+  .gh-btn {
+    display: inline-flex; align-items: center;
+    color: var(--ink-soft); text-decoration: none;
+    opacity: 0.7;
+    transition: opacity 160ms ease, color 160ms ease;
+  }
+  .gh-btn:hover { opacity: 1; color: var(--ink); }
+  .gh-btn svg { display: block; }
+
+  /* ── Sidebar ────────────────────────────────────────────── */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    overflow-y: auto; background: var(--bg);
+  }
+  .sidebar .search-wrap {
+    position: sticky; top: 0; z-index: 2;
+    padding: 14px 16px; background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar input[type=search] {
+    width: 100%;
+    background: var(--bg-elevated); border: 1px solid var(--border-strong);
+    color: var(--ink); padding: 8px 12px; border-radius: 2px;
+    font-family: var(--sans); font-size: 13px;
+    transition: border-color 120ms ease;
+  }
+  .sidebar input[type=search]:focus { outline: none; border-color: var(--accent-cool); }
+  .sidebar input[type=search]::placeholder { color: var(--ink-dim); }
+
   .sidebar .section-label {
-    padding: 14px 18px 6px; color: var(--ink-dim);
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 18px 22px 8px; color: var(--ink-dim);
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em;
   }
   .sidebar .empty {
-    padding: 18px; color: var(--ink-soft); font-size: 13px; line-height: 1.5;
+    padding: 14px 22px 22px; color: var(--ink-soft); font-size: 13px; line-height: 1.6;
   }
-  .sidebar .empty code { background: #11141c; padding: 1px 6px; border-radius: 4px; font-size: 0.9em; }
+  .sidebar .empty code {
+    background: var(--bg-elevated-2); padding: 2px 6px; border-radius: 2px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em;
+    border: 1px solid var(--border);
+  }
   .sidebar .item {
-    display: block; padding: 10px 18px;
-    color: var(--ink); border-left: 2px solid transparent;
-    cursor: pointer; user-select: none;
+    display: block; padding: 14px 22px; cursor: pointer; user-select: none;
+    border-left: 2px solid transparent;
+    border-bottom: 1px solid var(--border);
+    transition: background 120ms ease, border-left-color 120ms ease;
   }
-  .sidebar .item:hover { background: var(--panel); }
-  .sidebar .item.active { background: var(--accent-soft); border-left-color: var(--accent); }
-  .sidebar .item .title { font-size: 14px; font-weight: 500; }
-  .sidebar .item .desc { color: var(--ink-soft); font-size: 12px; margin-top: 2px; }
-  .sidebar .item .meta { color: var(--ink-dim); font-size: 11px; margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap; }
-  .sidebar .item .meta .tag { background: var(--panel-2); padding: 1px 7px; border-radius: 999px; }
+  .sidebar .item:hover { background: var(--bg-elevated); }
+  .sidebar .item.active {
+    background: var(--bg-elevated);
+    border-left-color: var(--accent-cool);
+  }
+  .sidebar .item .title {
+    font-family: var(--serif); font-size: 16px; font-weight: 500;
+    color: var(--ink); line-height: 1.3;
+  }
+  .sidebar .item .desc {
+    color: var(--ink-soft); font-size: 12.5px; margin-top: 6px; line-height: 1.45;
+  }
+  .sidebar .item .meta {
+    color: var(--ink-dim); font-size: 11px; margin-top: 8px;
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .sidebar .item .meta .tag {
+    background: transparent; padding: 1px 8px; border-radius: 999px;
+    border: 1px solid var(--border-strong); color: var(--ink-soft);
+    font-family: var(--sans); letter-spacing: 0.02em;
+  }
+  .sidebar .item .meta .date { color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 
-  main.viewport { position: relative; background: var(--bg); }
+  /* ── Main viewport ──────────────────────────────────────── */
+  main.viewport { position: relative; background: var(--bg); overflow: hidden; }
   main.viewport iframe {
     width: 100%; height: 100%; border: 0; display: block;
     background: var(--bg);
   }
+
+  /* ── Welcome panel ──────────────────────────────────────── */
   .welcome {
     height: 100%; display: grid; place-items: center; padding: 40px;
     color: var(--ink-soft);
   }
   .welcome .card {
-    max-width: 560px; padding: 28px 32px;
-    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    max-width: 620px;
+    padding: 48px 56px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    text-align: left;
+    position: relative;
   }
-  .welcome h2 { margin: 0 0 8px; color: var(--ink); font-size: 20px; }
-  .welcome p { margin: 6px 0; line-height: 1.55; }
-  .welcome code { background: #11141c; padding: 1px 6px; border-radius: 4px; font-size: 0.9em; }
+  .welcome .card::before {
+    content: ""; position: absolute; left: 56px; top: 36px;
+    width: 28px; height: 1px; background: var(--accent-cool);
+  }
+  .welcome .eyebrow {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.22em;
+    color: var(--accent-cool); margin-bottom: 18px; padding-top: 10px;
+  }
+  .welcome h2 {
+    font-family: var(--serif); font-size: 36px; font-weight: 500;
+    margin: 0 0 16px; color: var(--ink); letter-spacing: -0.015em; line-height: 1.15;
+  }
+  .welcome h2 em { font-style: italic; color: var(--ink-soft); }
+  .welcome p {
+    margin: 10px 0; font-size: 15px; line-height: 1.7; color: var(--ink-soft);
+  }
+  .welcome p code {
+    background: var(--bg-elevated-2); padding: 2px 7px; border-radius: 2px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em;
+    color: var(--ink); border: 1px solid var(--border);
+  }
+  .welcome .epigraph {
+    margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border);
+    font-family: var(--serif); font-style: italic; font-size: 14px;
+    color: var(--ink-dim); line-height: 1.6;
+  }
+  .welcome .epigraph cite {
+    font-style: normal; color: var(--ink-dim); display: block; margin-top: 4px;
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+
+  /* ── Footer rail ───────────────────────────────────────── */
+  .foot {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 22px; color: var(--ink-dim); font-size: 11px; letter-spacing: 0.04em;
+  }
+  .foot .epigraph {
+    font-family: var(--serif); font-style: italic; color: var(--ink-soft); font-size: 12px;
+  }
+  .foot .count { font-variant-numeric: tabular-nums; }
+
+  ::selection { background: var(--accent-cool); color: var(--bg); }
 </style>
 </head>
 <body>
 
 <div class="topbar">
-  <div class="brand">adam<span class="dot">.</span>pipelines</div>
-  <div class="crumb">project workflows</div>
-  <div class="spacer"></div>
-  <input type="search" id="filter" placeholder="Filter by title or tag…" />
+  <span class="brand">
+    <span class="project">{{ADAM_PROJECT_NAME}}</span><span class="suffix">.pipelines</span>
+  </span>
+  <span class="spacer"></span>
+  <span class="powered-by">
+    <a class="adam-attribution" href="https://github.com/lkzppm/adam" target="_blank" rel="noopener" title="powered by adam">
+      <span class="label">powered by</span>
+      <span class="adam-mark"><img src="{{ADAM_BANNER_DATA_URI}}" alt="adam" /></span>
+    </a>
+    <a class="gh-btn" href="https://github.com/lkzppm/adam" target="_blank" rel="noopener" aria-label="adam on GitHub" title="adam on GitHub">
+      <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+    </a>
+  </span>
 </div>
 
 <aside class="sidebar">
-  <div class="section-label">Pipelines</div>
+  <div class="search-wrap">
+    <input type="search" id="filter" placeholder="filter by title, description, or tag…" />
+  </div>
+  <div class="section-label">Named workflows</div>
   <div id="pipeline-list"></div>
   <div id="sidebar-empty" class="empty" hidden>
-    No pipelines yet. Create one with
+    No pipelines yet. Name your first one with
     <code>/adam:spec-create &lt;topic&gt; --pipeline</code>.
   </div>
 </aside>
 
 <main class="viewport">
-  <iframe id="frame" hidden></iframe>
+  <iframe id="frame" hidden title="pipeline"></iframe>
   <div id="welcome" class="welcome">
     <div class="card">
-      <h2>Pipelines</h2>
-      <p>Static HTML walkthroughs of how workflows in this project move — what triggers them, what each step does, and where the code lives.</p>
-      <p>Pick one from the sidebar to open it. New pipelines land here automatically once you run <code>/adam:spec-create &lt;topic&gt; --pipeline</code>.</p>
+      <div class="eyebrow">pipelines</div>
+      <h2>Naming the parts of the project <em>— so the rest of the work can find them.</em></h2>
+      <p>Each entry in this index is a static HTML walkthrough of one workflow in this codebase: who triggers it, what each step does, where the code lives, and how it fails. Pure comprehension aids — no anchors, no audit, no token budget.</p>
+      <p>Pick one from the rail on the left. New entries appear automatically after <code>/adam:spec-create &lt;topic&gt; --pipeline</code>.</p>
+      <div class="epigraph">
+        "And out of the ground the Lord God formed every beast of the field; and brought them unto Adam to see what he would call them: and whatsoever Adam called every living creature, that was the name thereof."
+        <cite>Genesis 2:19</cite>
+      </div>
     </div>
   </div>
 </main>
 
+<div class="foot">
+  <span class="epigraph">from dust, a spec</span>
+  <span class="count" id="footer-count">—</span>
+</div>
+
 <script>
   const manifest = JSON.parse(document.getElementById("pipelines-manifest").textContent);
-  const list = document.getElementById("pipeline-list");
-  const empty = document.getElementById("sidebar-empty");
-  const frame = document.getElementById("frame");
-  const welcome = document.getElementById("welcome");
-  const filter = document.getElementById("filter");
+  const list      = document.getElementById("pipeline-list");
+  const empty     = document.getElementById("sidebar-empty");
+  const frame     = document.getElementById("frame");
+  const welcome   = document.getElementById("welcome");
+  const filter    = document.getElementById("filter");
+  const footCount = document.getElementById("footer-count");
 
   function createItem(p) {
     const root = document.createElement("div");
@@ -167,6 +323,7 @@
       }
       if (p.updated) {
         const u = document.createElement("span");
+        u.className = "date";
         u.textContent = p.updated;
         meta.appendChild(u);
       }
@@ -180,6 +337,7 @@
   function render(filterText = "") {
     list.replaceChildren();
     const all = Array.isArray(manifest.pipelines) ? manifest.pipelines : [];
+    footCount.textContent = all.length === 1 ? "1 entry" : all.length + " entries";
     if (all.length === 0) {
       empty.hidden = false;
       return;
@@ -195,9 +353,8 @@
   }
 
   function open(p) {
-    for (const el of list.querySelectorAll(".item")) el.classList.remove("active");
     for (const el of list.querySelectorAll(".item")) {
-      if (el.dataset.file === p.file) el.classList.add("active");
+      el.classList.toggle("active", el.dataset.file === p.file);
     }
     welcome.hidden = true;
     frame.hidden = false;

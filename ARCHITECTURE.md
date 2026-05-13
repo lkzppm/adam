@@ -33,7 +33,8 @@ adam/
 │   │   ├── setup-graph.sh                     # Phase 0 of /adam:setup
 │   │   ├── spec-preflight.sh                  # JSON briefing for spec-create
 │   │   ├── check-anchors.sh                   # drift fast-path for spec-update
-│   │   └── update-pipelines-manifest.sh       # rewrite spec/pipelines.html manifest block
+│   │   ├── update-pipelines-manifest.sh       # rewrite spec/pipelines.html manifest block
+│   │   └── session-token-usage.sh             # aggregate session token usage for the setup brief
 │   ├── template/                              # template / seed selection
 │   │   ├── write-spec-rules.sh                # Phase 1: copy templates/rules/
 │   │   ├── write-pipelines-viewer.sh          # Phase 2b: install spec/pipelines.html

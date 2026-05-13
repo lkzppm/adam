@@ -12,7 +12,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 
 interface HookInput {
   hook_event_name?: string;
@@ -55,16 +55,6 @@ function findGitNexusRoot(startDir: string): GraphRoot | null {
   return null;
 }
 
-function gitnexusOnPath(): boolean {
-  const isWin = process.platform === "win32";
-  const which = spawnSync(isWin ? "where" : "which", ["gitnexus"], {
-    encoding: "utf-8",
-    timeout: 3000,
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-  return which.status === 0;
-}
-
 function handlePostToolUse(input: HookInput): void {
   const tool = input.tool_name ?? "";
   if (!/^(Edit|Write|MultiEdit)$/.test(tool)) return;
@@ -97,16 +87,25 @@ function handlePostToolUse(input: HookInput): void {
     /* ignore */
   }
 
-  // Detached re-index — agent never blocks on this.
+  // Detached re-index + cleanup — agent never blocks on this.
+  //
+  // The wrapper script chains `gitnexus analyze --skip-git` with
+  // strip-gitnexus-block.sh because every analyze re-injects the
+  // `<!-- gitnexus:start --> ... <!-- gitnexus:end -->` block back into
+  // CLAUDE.md (and re-creates AGENTS.md) on top of whatever adam wrote.
+  // Stripping post-analyze keeps both files clean between prompts.
   try {
     const isWin = process.platform === "win32";
-    const onPath = gitnexusOnPath();
-    const cmd = onPath ? (isWin ? "gitnexus.cmd" : "gitnexus") : isWin ? "npx.cmd" : "npx";
-    const args = onPath ? ["analyze", "--skip-git"] : ["-y", "gitnexus", "analyze", "--skip-git"];
+    const pluginRoot = process.env["CLAUDE_PLUGIN_ROOT"];
+    if (!pluginRoot) return; // hook only runs under Claude Code; this is always set
+    const wrapper = path.join(pluginRoot, "scripts", "utils", "reindex-and-strip.sh");
+    const cmd = isWin ? "bash.exe" : "bash";
+    const args = [wrapper, found.repoRoot];
     const child = spawn(cmd, args, {
       cwd: found.repoRoot,
       detached: true,
       stdio: "ignore",
+      env: { ...process.env, CLAUDE_PLUGIN_ROOT: pluginRoot },
     });
     child.on("exit", () => {
       try {

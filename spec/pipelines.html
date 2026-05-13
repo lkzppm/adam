@@ -1,0 +1,236 @@
+<!doctype html>
+<!--
+  adam pipelines viewer — copied verbatim by write-pipelines-viewer.sh into
+  <project>/spec/pipelines.html. Lists every pipeline-spec under
+  spec/pipelines/ and lets the user navigate between them in an iframe.
+
+  The manifest below is rewritten by update-pipelines-manifest.sh after every
+  pipeline-create / pipeline-update. Sentinel markers (BEGIN MANIFEST / END
+  MANIFEST) bracket the block so the script can replace it idempotently.
+
+  Inlined (not fetched) on purpose: the viewer must work when opened
+  directly via file:// URLs, where fetch() is blocked by default.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pipelines — project workflows</title>
+
+<!-- BEGIN MANIFEST -->
+<script id="pipelines-manifest" type="application/json">
+{
+  "generated": "2026-05-13T13:51:43Z",
+  "pipelines": [
+    {
+      "slug": "adam-setup-flow",
+      "title": "/adam:setup — the 8-phase scaffold",
+      "description": "How adam turns a virgin repo into a spec-driven Claude Code project, from gitnexus index to the final token-cost brief",
+      "tags": [
+        "setup",
+        "scaffold",
+        "agent+scripts"
+      ],
+      "updated": "2026-05-13",
+      "file": "pipelines/adam-setup-flow.html"
+    }
+  ]
+}
+</script>
+<!-- END MANIFEST -->
+
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161922;
+    --panel-2: #1d212c;
+    --ink: #e6e8ee;
+    --ink-soft: #a4abbb;
+    --ink-dim: #6c7287;
+    --accent: #7aa2ff;
+    --accent-soft: #2a3654;
+    --border: #2a2f3d;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); }
+  body { display: grid; grid-template-columns: 320px 1fr; grid-template-rows: 56px 1fr; height: 100vh; overflow: hidden; }
+
+  .topbar {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 18px; border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #131725 0%, #0f1115 100%);
+  }
+  .topbar .brand { font-weight: 600; letter-spacing: -0.01em; }
+  .topbar .brand .dot { color: var(--accent); }
+  .topbar .crumb { color: var(--ink-soft); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .topbar .spacer { flex: 1; }
+  .topbar input[type=search] {
+    background: var(--panel); border: 1px solid var(--border);
+    color: var(--ink); padding: 7px 12px; border-radius: 6px;
+    width: 240px; font-size: 13px;
+  }
+  .topbar input[type=search]:focus { outline: 1px solid var(--accent); }
+
+  aside.sidebar {
+    border-right: 1px solid var(--border);
+    overflow-y: auto; background: #0c0e15;
+  }
+  .sidebar .section-label {
+    padding: 14px 18px 6px; color: var(--ink-dim);
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .sidebar .empty {
+    padding: 18px; color: var(--ink-soft); font-size: 13px; line-height: 1.5;
+  }
+  .sidebar .empty code { background: #11141c; padding: 1px 6px; border-radius: 4px; font-size: 0.9em; }
+  .sidebar .item {
+    display: block; padding: 10px 18px;
+    color: var(--ink); border-left: 2px solid transparent;
+    cursor: pointer; user-select: none;
+  }
+  .sidebar .item:hover { background: var(--panel); }
+  .sidebar .item.active { background: var(--accent-soft); border-left-color: var(--accent); }
+  .sidebar .item .title { font-size: 14px; font-weight: 500; }
+  .sidebar .item .desc { color: var(--ink-soft); font-size: 12px; margin-top: 2px; }
+  .sidebar .item .meta { color: var(--ink-dim); font-size: 11px; margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .sidebar .item .meta .tag { background: var(--panel-2); padding: 1px 7px; border-radius: 999px; }
+
+  main.viewport { position: relative; background: var(--bg); }
+  main.viewport iframe {
+    width: 100%; height: 100%; border: 0; display: block;
+    background: var(--bg);
+  }
+  .welcome {
+    height: 100%; display: grid; place-items: center; padding: 40px;
+    color: var(--ink-soft);
+  }
+  .welcome .card {
+    max-width: 560px; padding: 28px 32px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  }
+  .welcome h2 { margin: 0 0 8px; color: var(--ink); font-size: 20px; }
+  .welcome p { margin: 6px 0; line-height: 1.55; }
+  .welcome code { background: #11141c; padding: 1px 6px; border-radius: 4px; font-size: 0.9em; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">adam<span class="dot">.</span>pipelines</div>
+  <div class="crumb">project workflows</div>
+  <div class="spacer"></div>
+  <input type="search" id="filter" placeholder="Filter by title or tag…" />
+</div>
+
+<aside class="sidebar">
+  <div class="section-label">Pipelines</div>
+  <div id="pipeline-list"></div>
+  <div id="sidebar-empty" class="empty" hidden>
+    No pipelines yet. Create one with
+    <code>/adam:spec-create &lt;topic&gt; --pipeline</code>.
+  </div>
+</aside>
+
+<main class="viewport">
+  <iframe id="frame" hidden></iframe>
+  <div id="welcome" class="welcome">
+    <div class="card">
+      <h2>Pipelines</h2>
+      <p>Static HTML walkthroughs of how workflows in this project move — what triggers them, what each step does, and where the code lives.</p>
+      <p>Pick one from the sidebar to open it. New pipelines land here automatically once you run <code>/adam:spec-create &lt;topic&gt; --pipeline</code>.</p>
+    </div>
+  </div>
+</main>
+
+<script>
+  const manifest = JSON.parse(document.getElementById("pipelines-manifest").textContent);
+  const list = document.getElementById("pipeline-list");
+  const empty = document.getElementById("sidebar-empty");
+  const frame = document.getElementById("frame");
+  const welcome = document.getElementById("welcome");
+  const filter = document.getElementById("filter");
+
+  function createItem(p) {
+    const root = document.createElement("div");
+    root.className = "item";
+    root.dataset.file = p.file;
+
+    const title = document.createElement("div");
+    title.className = "title";
+    title.textContent = p.title || p.slug;
+    root.appendChild(title);
+
+    if (p.description) {
+      const desc = document.createElement("div");
+      desc.className = "desc";
+      desc.textContent = p.description;
+      root.appendChild(desc);
+    }
+
+    const tags = Array.isArray(p.tags) ? p.tags : [];
+    if (tags.length || p.updated) {
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      for (const t of tags) {
+        const tag = document.createElement("span");
+        tag.className = "tag";
+        tag.textContent = t;
+        meta.appendChild(tag);
+      }
+      if (p.updated) {
+        const u = document.createElement("span");
+        u.textContent = p.updated;
+        meta.appendChild(u);
+      }
+      root.appendChild(meta);
+    }
+
+    root.addEventListener("click", () => open(p));
+    return root;
+  }
+
+  function render(filterText = "") {
+    list.replaceChildren();
+    const all = Array.isArray(manifest.pipelines) ? manifest.pipelines : [];
+    if (all.length === 0) {
+      empty.hidden = false;
+      return;
+    }
+    empty.hidden = true;
+    const q = filterText.trim().toLowerCase();
+    const items = !q ? all : all.filter(p =>
+      (p.title || "").toLowerCase().includes(q) ||
+      (p.description || "").toLowerCase().includes(q) ||
+      (Array.isArray(p.tags) ? p.tags : []).some(t => String(t).toLowerCase().includes(q))
+    );
+    for (const p of items) list.appendChild(createItem(p));
+  }
+
+  function open(p) {
+    for (const el of list.querySelectorAll(".item")) el.classList.remove("active");
+    for (const el of list.querySelectorAll(".item")) {
+      if (el.dataset.file === p.file) el.classList.add("active");
+    }
+    welcome.hidden = true;
+    frame.hidden = false;
+    frame.src = p.file;
+    if (history.replaceState) {
+      history.replaceState(null, "", "#" + encodeURIComponent(p.slug));
+    }
+  }
+
+  filter.addEventListener("input", e => render(e.target.value));
+  render();
+
+  // Deep-link via #slug
+  const initialSlug = decodeURIComponent((location.hash || "").replace(/^#/, ""));
+  if (initialSlug) {
+    const all = Array.isArray(manifest.pipelines) ? manifest.pipelines : [];
+    const hit = all.find(p => p.slug === initialSlug);
+    if (hit) open(hit);
+  }
+</script>
+
+</body>
+</html>

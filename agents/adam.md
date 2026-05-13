@@ -217,7 +217,8 @@ The parent skill may also indicate **merge mode** (`--merge`). In merge mode, th
 6. **`spec/INDEX.md`** — table with one row per spec across all three folders, in reading order: `overview.md`, then `project/*`, then `concepts/*`, then `rules/*`. Columns: `Spec | Read when… | Tokens`. **Use the `token-count` MCP** to fill the Tokens column.
 7. Report:
    - **Created** — every file you wrote, by folder.
-   - **Detection signals** — explicit list of stack tags (e.g. `nextjs`, `python+ruff`, `postgres+schema-sql`, `tailwindv4`, `docker-compose`, `tests-pytest`). The parent skill uses these to build the P3 menu candidates — be explicit, don't bury them in prose.
+   - **Detection signals** — explicit list of stack tags (e.g. `nextjs`, `python+ruff`, `postgres+schema-sql`, `tailwindv4`, `docker-compose`, `tests-pytest`). The parent skill uses these to build the P3 hook/subagent/skill menu candidates — be explicit, don't bury them in prose.
+   - **Candidate workflows** — 0–3 substantive user/operator-facing flows worth a pipeline-spec walkthrough. Only what you can substantiate from real code (an auth route, a checkout endpoint, a deploy script, a queue consumer, a CRON job). Each entry: `{slug, title, description, path_hints[]}`. **No padding.** The parent skill turns these into the P3 pipelines menu; accepted ones become `spec/pipelines/<slug>.html` in P4. If the project is a library, infra shim, or otherwise has no user-facing flow, return an empty list.
    - **Notes** — anything you noticed but did not act on.
 
 Do **NOT** lint here — `spec-lint` runs in P6 after CLAUDE.md exists. Do **NOT** write CLAUDE.md.

@@ -38,5 +38,19 @@ strip_one() {
   echo "stripped gitnexus block from $file"
 }
 
+cleanup_if_empty() {
+  # Remove the file if, after stripping, it contains nothing but whitespace.
+  # CLAUDE.md is load-bearing for adam (brief + spec index) and never gets
+  # removed — only AGENTS.md, which gitnexus creates as a pure boilerplate
+  # carrier the user didn't ask for.
+  local file=$1
+  [ -f "$file" ] || return 0
+  if [ ! -s "$file" ] || ! grep -q '[^[:space:]]' "$file"; then
+    rm -f "$file"
+    echo "removed empty $file"
+  fi
+}
+
 strip_one "$ROOT/CLAUDE.md"
 strip_one "$ROOT/AGENTS.md"
+cleanup_if_empty "$ROOT/AGENTS.md"

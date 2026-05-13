@@ -11,6 +11,7 @@ Strict pipeline. **Do not reorder, do not skip phases, do not write `.claude/` a
 P0  gitnexus analyze   ── hard prerequisite, cuts the run if missing
 P1  spec/rules/        ── deterministic copy from the plugin
 P2  spec scaffolding   ── overview + project/ + concepts/ + INDEX.md (NO CLAUDE.md yet)
+P2b pipelines viewer   ── install spec/pipelines.html + empty spec/pipelines/
 P3  three menus        ── hooks, subagents, skills (per-class AskUserQuestion)
 P4  create accepted    ── only the items the user marked
 P5  CLAUDE.md          ── written last, with the .claude/ artifacts in scope
@@ -53,7 +54,7 @@ Copy the plugin's templated workflow rules into the project. **Do not interpret 
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/template/write-spec-rules.sh "$PWD"
 ```
 
-The script copies `templates/spec-rules/*.md` into `<project>/spec/rules/` (currently `refactor.md`, `additive.md`, `orient.md`). It emits `{"status":"ok","dest":"...","files":3}`.
+The script copies `templates/rules/*.md` into `<project>/spec/rules/` (currently `refactor.md`, `additive.md`, `orient.md`). It emits `{"status":"ok","dest":"...","files":3}`.
 
 These rules encode adam's workflow contract — they are **not project-specific** and must NOT be edited per project. Project-specific patterns go under `spec/project/` and `spec/concepts/` instead.
 
@@ -74,7 +75,25 @@ Delegate to the `adam` sub-agent in **scaffold-only** mode:
 > 1. Standard report (Created/Updated/Lint/Notes)
 > 2. **Detection signals** — list the stack tags you observed (e.g. `nextjs`, `python+ruff`, `postgres+schema-sql`, `tailwindv4`, `docker-compose`, `tests-pytest`). The parent skill uses these to build the P3 menu candidates.
 
-Surface the agent's report. If the agent reports failure, do not proceed to P3.
+Surface the agent's report. If the agent reports failure, do not proceed to P2b.
+
+## Phase 2b — pipelines viewer (deterministic copy)
+
+Pipelines are a second kind of spec — static `.html` walkthroughs of how a workflow moves through the project (one HTML file per workflow, plus a global viewer at `spec/pipelines.html` that lists them in a sidebar and opens each in an iframe). They are **purely for user comprehension** and are exempt from `spec-audit`, the `spec-lint` MCP, and `check-anchors.sh` (all of which scan `*.md` only).
+
+Phase 2b installs the **infrastructure** — viewer + empty folder + initial empty manifest. It does **not** auto-generate any individual pipeline-spec; those are written on demand by `/adam:spec-create <topic> --pipeline` once the user knows which workflows are worth a walkthrough. **Do not interpret these steps yourself; call the script.**
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/template/write-pipelines-viewer.sh "$PWD"
+```
+
+The script:
+
+1. Copies `templates/pipelines/viewer.html` into `<project>/spec/pipelines.html` (overwrites with the latest template — keep customizations under the plugin, not under the project).
+2. Creates an empty `<project>/spec/pipelines/` directory.
+3. Calls `scripts/tools/update-pipelines-manifest.sh` to seed the viewer's inlined manifest block (`<!-- BEGIN MANIFEST -->` … `<!-- END MANIFEST -->`) — so if the project already had pipelines, they're picked up; otherwise the block is just empty.
+
+Emits `{"status":"ok","viewer":"<path>","dir":"<path>","pipelines":N}`. Hold the count — surface it in the final brief.
 
 ## Phase 3 — three per-class AskUserQuestion menus
 
@@ -207,6 +226,8 @@ Specs
   spec/concepts/<files>             ── <count> file(s): <names>
   spec/rules/                       ── 3 workflow recipes
   spec/INDEX.md                     ── token-counted index
+  spec/pipelines.html               ── viewer for HTML workflow walkthroughs (audit-exempt)
+  spec/pipelines/                   ── <count> pipeline(s) so far
 
 Project automations  (only what you picked)
   Hooks:     <names or "none">
@@ -222,12 +243,13 @@ Lint
 Try next:
   /adam:spec-update   ── refresh specs after substantive code changes
   /adam:spec-create <topic>   ── add a new spec page
+  /adam:spec-create <topic> --pipeline   ── add an HTML workflow walkthrough
   /adam:claude-add <kind> "<description>"   ── add another hook/agent/skill later
 ```
 
 ## Guardrails
 
-- **Phase order is strict.** P0 missing gitnexus → stop. P2 fails → stop. Skipping P3 is a bug — even one accepted item must go through `AskUserQuestion`.
+- **Phase order is strict.** P0 missing gitnexus → stop. P2 fails → stop. P2b is best-effort — if `write-pipelines-viewer.sh` fails, surface the error but continue to P3 (the viewer is non-load-bearing). Skipping P3 is a bug — even one accepted item must go through `AskUserQuestion`.
 - **Never write `.claude/` files outside P4.** No defaults, no "obvious" auto-additions.
 - **CLAUDE.md is P5, not P2.** It must reflect what `.claude/` actually contains by the time you write it.
 - **Never overwrite `.claude/settings.json`** — read, splice, write back.

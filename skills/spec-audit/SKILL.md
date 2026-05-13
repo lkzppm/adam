@@ -7,6 +7,16 @@ description: Lint the spec-driven Claude Code ecosystem in this project — chec
 
 Read-only health check of the spec-driven workflow. Distinct from `spec-update`: that one fixes; this one reports.
 
+## Scope
+
+This audit covers **markdown specs only** — `spec/**/*.md`, `CLAUDE.md`, and `.claude/`. Pipeline-specs under `spec/pipelines/*.html` and the viewer `spec/pipelines.html` are **purely for user comprehension** and are deliberately exempt:
+
+- The `spec-lint` MCP filters to `*.md` and skips subdirectories of `spec/` other than the ones it knows about.
+- `spec-graph-xref.sh` uses `find -name '*.md'`, so HTML files are never seen.
+- `check-anchors.sh` (used by `spec-update`) also walks `*.md` only.
+
+If a pipeline-spec looks wrong, open it in a browser — that's the validation surface. To regenerate the viewer's sidebar after manual edits, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tools/update-pipelines-manifest.sh "$PWD"`.
+
 ## Process
 
 1. Invoke the `spec-lint` MCP tool (`lint`) with the project root as the path argument. The lint result already includes a token summary for every spec.

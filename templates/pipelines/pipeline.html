@@ -6,286 +6,436 @@
   automatically once `update-pipelines-manifest.sh` re-scans the folder.
 -->
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title><PIPELINE_TITLE> — pipeline</title>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title><PIPELINE_TITLE> — pipeline</title>
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
 
-<!--
+    <!--
   Pipeline metadata. The update-pipelines-manifest.sh script parses this
   block to build the viewer's sidebar. Keep keys stable; add tags freely.
 -->
-<script type="application/adam-pipeline+json" id="pipeline-meta">
-{
-  "slug": "<PIPELINE_SLUG>",
-  "title": "<PIPELINE_TITLE>",
-  "description": "<one-line summary surfaced in the viewer sidebar>",
-  "tags": ["<area>", "<actor>"],
-  "updated": "<YYYY-MM-DD>"
-}
-</script>
+    <script type="application/adam-pipeline+json" id="pipeline-meta">
+      {
+        "slug": "<PIPELINE_SLUG>",
+        "title": "<PIPELINE_TITLE>",
+        "description": "<one-line summary surfaced in the viewer sidebar>",
+        "tags": ["<area>", "<actor>"],
+        "updated": "<YYYY-MM-DD>"
+      }
+    </script>
 
-<style>
-  :root {
-    --bg:            #000000;
-    --bg-elevated:   #0a0a0a;
-    --bg-elevated-2: #111111;
-    --border:        #1c1c1c;
-    --border-strong: #2a2a2a;
-    --ink:           #f0f0f0;
-    --ink-soft:      #9a9a9a;
-    --ink-dim:       #555555;
-    --accent:        #ffffff;
-    --accent-cool:   #7aa2ff;
-    --serif:  'Newsreader', 'Source Serif Pro', Georgia, serif;
-    --sans:   'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-    --mono:   ui-monospace, SFMono-Regular, Menlo, monospace;
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); }
-  body { line-height: 1.6; }
+    <style>
+      :root {
+        --bg: #000000;
+        --bg-elevated: #0a0a0a;
+        --bg-elevated-2: #111111;
+        --border: #1c1c1c;
+        --border-strong: #2a2a2a;
+        --ink: #f0f0f0;
+        --ink-soft: #9a9a9a;
+        --ink-dim: #555555;
+        --accent: #ffffff;
+        --accent-cool: #7aa2ff;
+        --serif: "Newsreader", "Source Serif Pro", Georgia, serif;
+        --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+        --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--sans);
+      }
+      body {
+        line-height: 1.6;
+      }
 
-  /* ── Header ─────────────────────────────────────────────── */
-  header {
-    padding: 64px 56px 36px;
-    border-bottom: 1px solid var(--border);
-    max-width: 1080px; margin: 0 auto;
-  }
-  header .eyebrow {
-    font-size: 10px; text-transform: uppercase; letter-spacing: 0.22em;
-    color: var(--accent-cool); margin-bottom: 14px;
-  }
-  header h1 {
-    font-family: var(--serif); font-size: 44px; font-weight: 500;
-    margin: 0 0 14px; letter-spacing: -0.018em; line-height: 1.1;
-  }
-  header h1 em { font-style: italic; color: var(--ink-soft); }
-  header .desc {
-    color: var(--ink-soft); font-size: 16px; max-width: 720px; line-height: 1.65;
-  }
-  header .tags { margin-top: 22px; display: flex; gap: 8px; flex-wrap: wrap; }
-  header .tag {
-    font-size: 11px; padding: 3px 10px; border-radius: 999px;
-    background: transparent; border: 1px solid var(--border-strong);
-    color: var(--ink-soft); letter-spacing: 0.04em;
-  }
+      /* ── Header ─────────────────────────────────────────────── */
+      header {
+        padding: 64px 56px 36px;
+        border-bottom: 1px solid var(--border);
+        max-width: 1080px;
+        margin: 0 auto;
+      }
+      header .eyebrow {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.22em;
+        color: var(--accent-cool);
+        margin-bottom: 14px;
+      }
+      header h1 {
+        font-family: var(--serif);
+        font-size: 44px;
+        font-weight: 500;
+        margin: 0 0 14px;
+        letter-spacing: -0.018em;
+        line-height: 1.1;
+      }
+      header h1 em {
+        font-style: italic;
+        color: var(--ink-soft);
+      }
+      header .desc {
+        color: var(--ink-soft);
+        font-size: 16px;
+        max-width: 720px;
+        line-height: 1.65;
+      }
+      header .tags {
+        margin-top: 22px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      header .tag {
+        font-size: 11px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: transparent;
+        border: 1px solid var(--border-strong);
+        color: var(--ink-soft);
+        letter-spacing: 0.04em;
+      }
 
-  /* ── Sections ───────────────────────────────────────────── */
-  main { padding: 16px 56px 96px; max-width: 1080px; margin: 0 auto; }
-  section { margin-top: 48px; }
-  section > h2 {
-    font-family: var(--serif);
-    font-size: 13px; text-transform: uppercase; letter-spacing: 0.18em;
-    color: var(--ink-dim); margin: 0 0 18px;
-    padding-bottom: 8px;
-    display: flex; align-items: center; gap: 12px;
-  }
-  section > h2::before {
-    content: ""; display: inline-block; width: 16px; height: 1px;
-    background: var(--accent-cool);
-  }
+      /* ── Sections ───────────────────────────────────────────── */
+      main {
+        padding: 16px 56px 96px;
+        max-width: 1080px;
+        margin: 0 auto;
+      }
+      section {
+        margin-top: 48px;
+      }
+      section > h2 {
+        font-family: var(--serif);
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        color: var(--ink-dim);
+        margin: 0 0 18px;
+        padding-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      section > h2::before {
+        content: "";
+        display: inline-block;
+        width: 16px;
+        height: 1px;
+        background: var(--accent-cool);
+      }
 
-  /* ── Panels & prose ─────────────────────────────────────── */
-  .panel {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    padding: 22px 26px;
-  }
-  .brief { font-size: 16px; }
-  .brief p { margin: 0 0 14px; color: var(--ink); }
-  .brief p:last-child { margin-bottom: 0; }
-  .brief code { background: var(--bg-elevated-2); padding: 2px 7px; border: 1px solid var(--border); border-radius: 2px; font-family: var(--mono); font-size: 0.88em; }
+      /* ── Panels & prose ─────────────────────────────────────── */
+      .panel {
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        padding: 22px 26px;
+      }
+      .brief {
+        font-size: 16px;
+      }
+      .brief p {
+        margin: 0 0 14px;
+        color: var(--ink);
+      }
+      .brief p:last-child {
+        margin-bottom: 0;
+      }
+      .brief code {
+        background: var(--bg-elevated-2);
+        padding: 2px 7px;
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        font-family: var(--mono);
+        font-size: 0.88em;
+      }
 
-  /* ── Mermaid container ─────────────────────────────────── */
-  .mermaid {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    padding: 32px;
-    overflow-x: auto; text-align: center;
-    font-family: var(--mono);
-  }
+      /* ── Mermaid container ─────────────────────────────────── */
+      .mermaid {
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        padding: 32px;
+        overflow-x: auto;
+        text-align: center;
+        font-family: var(--mono);
+      }
 
-  /* ── Steps ─────────────────────────────────────────────── */
-  .steps { counter-reset: step; padding: 0; list-style: none; margin: 0; }
-  .steps > li {
-    counter-increment: step;
-    position: relative;
-    padding: 18px 22px 18px 76px;
-    border: 1px solid var(--border);
-    background: var(--bg-elevated);
-    margin-bottom: 10px;
-  }
-  .steps > li::before {
-    content: counter(step, decimal-leading-zero);
-    position: absolute; left: 22px; top: 18px;
-    width: 40px; height: 24px;
-    display: grid; place-items: center;
-    color: var(--accent-cool);
-    font-family: var(--serif); font-style: italic;
-    font-size: 18px; letter-spacing: 0.02em;
-  }
-  .steps .step-title {
-    font-family: var(--serif); font-weight: 500;
-    font-size: 17px; margin-bottom: 4px; color: var(--ink);
-  }
-  .steps .step-meta { color: var(--ink-soft); font-size: 14px; line-height: 1.65; }
-  .steps .step-meta code { font-family: var(--mono); }
+      /* ── Steps ─────────────────────────────────────────────── */
+      .steps {
+        counter-reset: step;
+        padding: 0;
+        list-style: none;
+        margin: 0;
+      }
+      .steps > li {
+        counter-increment: step;
+        position: relative;
+        padding: 18px 22px 18px 76px;
+        border: 1px solid var(--border);
+        background: var(--bg-elevated);
+        margin-bottom: 10px;
+      }
+      .steps > li::before {
+        content: counter(step, decimal-leading-zero);
+        position: absolute;
+        left: 22px;
+        top: 18px;
+        width: 40px;
+        height: 24px;
+        display: grid;
+        place-items: center;
+        color: var(--accent-cool);
+        font-family: var(--serif);
+        font-style: italic;
+        font-size: 18px;
+        letter-spacing: 0.02em;
+      }
+      .steps .step-title {
+        font-family: var(--serif);
+        font-weight: 500;
+        font-size: 17px;
+        margin-bottom: 4px;
+        color: var(--ink);
+      }
+      .steps .step-meta {
+        color: var(--ink-soft);
+        font-size: 14px;
+        line-height: 1.65;
+      }
+      .steps .step-meta code {
+        font-family: var(--mono);
+      }
 
-  /* ── Tables ────────────────────────────────────────────── */
-  table {
-    width: 100%; border-collapse: collapse; font-size: 14px;
-    background: var(--bg-elevated); border: 1px solid var(--border);
-  }
-  th, td {
-    text-align: left; padding: 12px 16px;
-    border-bottom: 1px solid var(--border);
-    vertical-align: top;
-  }
-  tr:last-child td { border-bottom: 0; }
-  th {
-    color: var(--ink-dim); font-weight: 500;
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em;
-    background: var(--bg);
-    font-family: var(--sans);
-  }
-  td { color: var(--ink); }
-  td code { font-family: var(--mono); }
+      /* ── Tables ────────────────────────────────────────────── */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      th {
+        color: var(--ink-dim);
+        font-weight: 500;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        background: var(--bg);
+        font-family: var(--sans);
+      }
+      td {
+        color: var(--ink);
+      }
+      td code {
+        font-family: var(--mono);
+      }
 
-  /* ── Code & links ──────────────────────────────────────── */
-  code { font-family: var(--mono); background: var(--bg-elevated-2); padding: 1px 6px; border-radius: 2px; font-size: 0.92em; border: 1px solid var(--border); }
-  pre {
-    background: var(--bg-elevated-2); border: 1px solid var(--border);
-    padding: 16px 18px; overflow-x: auto;
-    font-family: var(--mono); font-size: 13px; line-height: 1.55;
-  }
-  a { color: var(--accent); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
-  a:hover { text-decoration-color: var(--accent); }
+      /* ── Code & links ──────────────────────────────────────── */
+      code {
+        font-family: var(--mono);
+        background: var(--bg-elevated-2);
+        padding: 1px 6px;
+        border-radius: 2px;
+        font-size: 0.92em;
+        border: 1px solid var(--border);
+      }
+      pre {
+        background: var(--bg-elevated-2);
+        border: 1px solid var(--border);
+        padding: 16px 18px;
+        overflow-x: auto;
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      a {
+        color: var(--accent);
+        text-decoration: underline;
+        text-decoration-color: var(--border-strong);
+        text-underline-offset: 3px;
+      }
+      a:hover {
+        text-decoration-color: var(--accent);
+      }
 
-  /* ── Failure-mode list ─────────────────────────────────── */
-  ul.fmodes { margin: 0; padding-left: 18px; }
-  ul.fmodes li { margin-bottom: 10px; color: var(--ink); line-height: 1.6; }
-  ul.fmodes li::marker { color: var(--accent-cool); }
-  ul.fmodes strong { font-family: var(--serif); font-style: italic; font-weight: 500; color: var(--ink); }
+      /* ── Failure-mode list ─────────────────────────────────── */
+      ul.fmodes {
+        margin: 0;
+        padding-left: 18px;
+      }
+      ul.fmodes li {
+        margin-bottom: 10px;
+        color: var(--ink);
+        line-height: 1.6;
+      }
+      ul.fmodes li::marker {
+        color: var(--accent-cool);
+      }
+      ul.fmodes strong {
+        font-family: var(--serif);
+        font-style: italic;
+        font-weight: 500;
+        color: var(--ink);
+      }
 
-  /* ── Footer epigraph ───────────────────────────────────── */
-  footer {
-    max-width: 1080px; margin: 0 auto;
-    padding: 36px 56px 80px;
-    color: var(--ink-dim);
-    font-family: var(--serif); font-style: italic; font-size: 13px;
-    border-top: 1px solid var(--border);
-    text-align: right;
-  }
-  ::selection { background: var(--accent); color: var(--bg); }
-</style>
-</head>
-<body>
+      /* ── Footer epigraph ───────────────────────────────────── */
+      footer {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 36px 56px 80px;
+        color: var(--ink-dim);
+        font-family: var(--serif);
+        font-style: italic;
+        font-size: 13px;
+        border-top: 1px solid var(--border);
+        text-align: right;
+      }
+      ::selection {
+        background: var(--accent);
+        color: var(--bg);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="eyebrow">pipeline</div>
+      <h1>{{PIPELINE_TITLE}}</h1>
+      <div class="desc">
+        <!-- One-paragraph brief: what flow is this, who triggers it, what outcome it produces. -->
+        {{BRIEF}}
+      </div>
+      <div class="tags">
+        <span class="tag">{{AREA}}</span>
+        <span class="tag">{{ACTOR}}</span>
+      </div>
+    </header>
 
-<header>
-  <div class="eyebrow">pipeline</div>
-  <h1><PIPELINE_TITLE></h1>
-  <div class="desc">
-    <!-- One-paragraph brief: what flow is this, who triggers it, what outcome it produces. -->
-    <ONE_PARAGRAPH_BRIEF>
-  </div>
-  <div class="tags">
-    <span class="tag"><area></span>
-    <span class="tag"><actor></span>
-  </div>
-</header>
+    <main>
+      <section>
+        <h2>Flow</h2>
+        <div class="mermaid">
+          flowchart TD A(["Start · trigger"]) --> B["Step 1"] B --> C{"Decision?"} C -- "yes" -->
+          D["Step 2a"] C -- "no" --> E["Step 2b"] D --> F(["End"]) E --> F
+        </div>
+      </section>
 
-<main>
+      <section>
+        <h2>Brief</h2>
+        <div class="brief panel">
+          <p>
+            Replace this with 1–3 short paragraphs explaining the flow in prose. State the actors,
+            the trigger, the happy path, and the failure modes worth knowing.
+          </p>
+          <p>
+            Link out to relevant <code>spec/concepts/&lt;subsystem&gt;.md</code> pages when the
+            prose needs to go deeper than this view should.
+          </p>
+        </div>
+      </section>
 
-<section>
-  <h2>Flow</h2>
-  <div class="mermaid">
-flowchart TD
-  A(["Start · trigger"]) --> B["Step 1"]
-  B --> C{"Decision?"}
-  C -- "yes" --> D["Step 2a"]
-  C -- "no"  --> E["Step 2b"]
-  D --> F(["End"])
-  E --> F
-  </div>
-</section>
+      <section>
+        <h2>Steps</h2>
+        <ol class="steps">
+          <li>
+            <div class="step-title">Step 1 — &lt;short label&gt;</div>
+            <div class="step-meta">
+              Where in the code: <code>&lt;file&gt;:&lt;symbol&gt;</code>. What happens: &lt;1
+              sentence&gt;.
+            </div>
+          </li>
+          <li>
+            <div class="step-title">Step 2 — &lt;short label&gt;</div>
+            <div class="step-meta">
+              Where in the code: <code>&lt;file&gt;:&lt;symbol&gt;</code>. What happens: &lt;1
+              sentence&gt;.
+            </div>
+          </li>
+        </ol>
+      </section>
 
-<section>
-  <h2>Brief</h2>
-  <div class="brief panel">
-    <p>Replace this with 1–3 short paragraphs explaining the flow in prose. State the actors, the
-    trigger, the happy path, and the failure modes worth knowing.</p>
-    <p>Link out to relevant <code>spec/concepts/&lt;subsystem&gt;.md</code> pages when the prose needs to
-    go deeper than this view should.</p>
-  </div>
-</section>
+      <section>
+        <h2>Touched surfaces</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Area</th>
+              <th>Files / endpoints</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>&lt;area&gt;</td>
+              <td><code>&lt;path&gt;</code></td>
+              <td>&lt;1 line&gt;</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
 
-<section>
-  <h2>Steps</h2>
-  <ol class="steps">
-    <li>
-      <div class="step-title">Step 1 — &lt;short label&gt;</div>
-      <div class="step-meta">Where in the code: <code>&lt;file&gt;:&lt;symbol&gt;</code>. What happens: &lt;1 sentence&gt;.</div>
-    </li>
-    <li>
-      <div class="step-title">Step 2 — &lt;short label&gt;</div>
-      <div class="step-meta">Where in the code: <code>&lt;file&gt;:&lt;symbol&gt;</code>. What happens: &lt;1 sentence&gt;.</div>
-    </li>
-  </ol>
-</section>
+      <section>
+        <h2>Failure modes</h2>
+        <div class="panel">
+          <ul class="fmodes">
+            <li>
+              <strong>&lt;symptom&gt;</strong> — &lt;likely cause&gt; — &lt;where to look&gt;.
+            </li>
+          </ul>
+        </div>
+      </section>
+    </main>
 
-<section>
-  <h2>Touched surfaces</h2>
-  <table>
-    <thead><tr><th>Area</th><th>Files / endpoints</th><th>Note</th></tr></thead>
-    <tbody>
-      <tr><td>&lt;area&gt;</td><td><code>&lt;path&gt;</code></td><td>&lt;1 line&gt;</td></tr>
-    </tbody>
-  </table>
-</section>
+    <footer>named, that it might be found again.</footer>
 
-<section>
-  <h2>Failure modes</h2>
-  <div class="panel">
-    <ul class="fmodes">
-      <li><strong>&lt;symptom&gt;</strong> — &lt;likely cause&gt; — &lt;where to look&gt;.</li>
-    </ul>
-  </div>
-</section>
-
-</main>
-
-<footer>named, that it might be found again.</footer>
-
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-<script>
-  mermaid.initialize({
-    startOnLoad: true,
-    theme: "base",
-    themeVariables: {
-      darkMode: true,
-      background:        "#0a0a0a",
-      primaryColor:      "#0d0d0d",
-      primaryTextColor:  "#f0f0f0",
-      primaryBorderColor:"#2a2a2a",
-      lineColor:         "#9a9a9a",
-      secondaryColor:    "#141414",
-      tertiaryColor:     "#0a0a0a",
-      edgeLabelBackground:"#0a0a0a",
-      titleColor:        "#f0f0f0",
-      noteBkgColor:      "#0a0a0a",
-      noteBorderColor:   "#2a2a2a",
-      clusterBkg:        "#0a0a0a",
-      clusterBorder:     "#1c1c1c",
-      fontFamily:        "'Inter', system-ui, sans-serif"
-    },
-    flowchart: { htmlLabels: true, curve: "basis", padding: 16 },
-    securityLevel: "loose"
-  });
-</script>
-
-</body>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: "base",
+        themeVariables: {
+          darkMode: true,
+          background: "#0a0a0a",
+          primaryColor: "#0d0d0d",
+          primaryTextColor: "#f0f0f0",
+          primaryBorderColor: "#2a2a2a",
+          lineColor: "#9a9a9a",
+          secondaryColor: "#141414",
+          tertiaryColor: "#0a0a0a",
+          edgeLabelBackground: "#0a0a0a",
+          titleColor: "#f0f0f0",
+          noteBkgColor: "#0a0a0a",
+          noteBorderColor: "#2a2a2a",
+          clusterBkg: "#0a0a0a",
+          clusterBorder: "#1c1c1c",
+          fontFamily: "'Inter', system-ui, sans-serif",
+        },
+        flowchart: { htmlLabels: true, curve: "basis", padding: 16 },
+        securityLevel: "loose",
+      });
+    </script>
+  </body>
 </html>

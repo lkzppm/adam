@@ -264,7 +264,10 @@ The parent `spec-update` skill runs `scripts/tools/check-anchors.sh` first and p
 Invoked by `spec-create` (with `--pipeline`) or `spec-update` (with a `spec/pipelines/<slug>.html` path).
 
 1. The parent skill supplies (a) the topic / slug, (b) light path hints from the user, and (c) the verbatim seed from `templates/pipelines/pipeline.html`. The seed already wires up Mermaid, dark theme, and the metadata block — keep its structure intact.
-2. Replace every `<PLACEHOLDER>` token (`<PIPELINE_SLUG>`, `<PIPELINE_TITLE>`, `<one-line summary…>`, `<ONE_PARAGRAPH_BRIEF>`, `<area>`, `<actor>`, `<YYYY-MM-DD>`) with concrete values. The slug must be kebab-case and match the filename.
+2. Replace every placeholder with concrete values. Two shapes exist:
+   - Inside the `<script type="application/adam-pipeline+json" id="pipeline-meta">` JSON block: `"<PIPELINE_SLUG>"`, `"<PIPELINE_TITLE>"`, `"<one-line summary…>"`, `"<YYYY-MM-DD>"`. Bracket form is safe here — JSON inside `<script>` isn't HTML-parsed.
+   - In the HTML body: `{{PIPELINE_TITLE}}` (header), `{{BRIEF}}` (one-paragraph description), `{{AREA}}` and `{{ACTOR}}` (tag chips). Mustache-style on purpose — bare-bracket `<X>` would confuse the HTML parser (and prettier).
+   The slug must be kebab-case and match the filename. Both shapes must end up as concrete text — no placeholders left in the written file.
 3. Rewrite the placeholder `flowchart TD` block inside `<div class="mermaid">` with the actual workflow. Use `[]`, `()`, `{}` shape syntax purposefully (rectangle = step, stadium = start/end, diamond = decision). Keep node IDs short (`A`, `B`, ...) and labels human.
 4. Replace the placeholder Brief / Steps / Touched surfaces / Failure modes content with substantive prose grounded in the path hints. Drop any section that doesn't apply rather than leaving placeholders.
 5. The `<script type="application/adam-pipeline+json" id="pipeline-meta">` block MUST stay parseable JSON — `update-pipelines-manifest.sh` reads it to build the viewer sidebar. Bump `updated` to today on every edit.

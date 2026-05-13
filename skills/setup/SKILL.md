@@ -228,7 +228,17 @@ Re-run lint after any fix until `errors: []`.
 
 ## Phase 7 — final brief
 
-Single message to the user, in this format:
+Before composing the brief, capture session token usage so the user can see how much running `/adam:setup` cost. **Do not interpret these steps yourself; call the script.**
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/tools/session-token-usage.sh "$PWD"
+```
+
+The script aggregates `message.usage` across every assistant message in the current Claude Code session JSONL (located via the project-slug convention `~/.claude/projects/<slug>/<session-id>.jsonl`) and emits a single JSON object: `{status, session, total, input, output, cache_creation, cache_read, turns}`. If `status != "ok"` (jq missing, session not found, etc.), surface a single `not available` line under the Tokens block instead of failing the brief.
+
+Note: the count is **session-wide**, not strictly setup-only. Since `/adam:setup` is a one-shot bootstrap usually run as the first command in a fresh session, the number is dominated by setup work in practice — but if the user invoked other commands earlier, those tokens are included too. Caveat this in the brief by labelling the line *"this session"*.
+
+Then compose the brief as a single message to the user, in this format:
 
 ```
 adam setup complete.
@@ -255,6 +265,10 @@ CLAUDE.md
 
 Lint
   <"clean" or summary of warnings left>
+
+Tokens consumed (this session)
+  <total>  ── input <N> · output <N> · cache creation <N> · cache read <N>  across <turns> turns
+  ("not available" if scripts/tools/session-token-usage.sh returned status != ok)
 
 Try next:
   /adam:spec-update   ── refresh specs after substantive code changes

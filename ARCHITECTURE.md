@@ -32,9 +32,12 @@ adam/
 │   ├── tools/                                 # gitnexus-driven helpers
 │   │   ├── setup-graph.sh                     # Phase 0 of /adam:setup
 │   │   ├── spec-preflight.sh                  # JSON briefing for spec-create
-│   │   └── check-anchors.sh                   # drift fast-path for spec-update
+│   │   ├── check-anchors.sh                   # drift fast-path for spec-update
+│   │   ├── update-pipelines-manifest.sh       # rewrite spec/pipelines.html manifest block
+│   │   └── session-token-usage.sh             # aggregate session token usage for the setup brief
 │   ├── template/                              # template / seed selection
-│   │   ├── write-spec-rules.sh                # Phase 1: copy templates/spec-rules/
+│   │   ├── write-spec-rules.sh                # Phase 1: copy templates/rules/
+│   │   ├── write-pipelines-viewer.sh          # Phase 2b: install spec/pipelines.html
 │   │   └── select-seed.sh                     # detect stack → return seed path
 │   ├── utils/                                 # misc utilities
 │   │   └── strip-gitnexus-block.sh            # idempotent CLAUDE.md cleanup
@@ -46,10 +49,13 @@ adam/
 │       └── smoke-test.sh                      # JSON-RPC smoke vs both MCPs
 │
 ├── templates/
-│   ├── spec-rules/*.md                        # Phase 1 deterministic copy
-│   └── specs/                                 # stack-specific seed templates
-│       ├── nextjs.md  ·  hono.md
-│       └── fastapi.md ·  django.md
+│   ├── rules/*.md                               # Phase 1 deterministic copy
+│   ├── specs/                                 # stack-specific seed templates
+│   │   ├── nextjs.md  ·  hono.md
+│   │   └── fastapi.md ·  django.md
+│   └── pipelines/                             # pipeline-spec seeds (HTML)
+│       ├── viewer.html                        # global viewer copied to spec/pipelines.html
+│       └── pipeline.html                      # individual workflow walkthrough seed
 │
 ├── bench/                                     # the comparison vs portifolio (n=22 paired tasks)
 └── public/AdamBanner.png
@@ -64,6 +70,7 @@ Eight phases, strictly ordered. The full prose lives in [`skills/setup/SKILL.md`
 | 0 | `gitnexus analyze` (hard prereq — cuts the run if missing) | `scripts/tools/setup-graph.sh` |
 | 1 | `spec/rules/` deterministic copy | `scripts/template/write-spec-rules.sh` |
 | 2 | spec scaffolding — `overview` + `project/` + `concepts/` + `INDEX.md` (no `CLAUDE.md` yet) | `agents/adam.md` (scaffold-only) |
+| 2b | pipelines viewer — install `spec/pipelines.html` + empty `spec/pipelines/` | `scripts/template/write-pipelines-viewer.sh` |
 | 3 | three per-class `AskUserQuestion` menus — hooks, then subagents, then skills | `skills/setup/SKILL.md` |
 | 4 | create only the items the user picked | `agents/adam.md` (claude-add) |
 | 5 | `CLAUDE.md` — written last so it can list the actual `.claude/` artifacts | `agents/adam.md` (finalize) |
@@ -71,6 +78,8 @@ Eight phases, strictly ordered. The full prose lives in [`skills/setup/SKILL.md`
 | 7 | final brief — graph stats, specs, automations, tokens, lint state | `skills/setup/SKILL.md` |
 
 P0 strips the `<!-- gitnexus:start --> ... <!-- gitnexus:end -->` block GitNexus auto-injects into `CLAUDE.md` on first analyze — its prescriptive *"MUST run impact analysis before editing any symbol"* rules measurably bias Sonnet toward extra exploration turns. P0 also merges a `gitnexus` entry into `mcpServers` in `.mcp.json`, preserving any unrelated entries.
+
+P2b installs **infrastructure only** — the viewer + empty folder + empty manifest. Individual pipeline-specs are written on demand via `/adam:spec-create <topic> --pipeline`; the setup pipeline never auto-generates them (the agent has no signal about which workflows are worth a walkthrough).
 
 P3 is mandatory: `.claude/` files are only ever created via the menu — no defaults, no auto-additions. CLAUDE.md is deferred to P5 so it can reference the real artifacts in `.claude/`.
 

@@ -59,42 +59,24 @@ Then in any project:
 
 ## Skills
 
-Each slash command is a Claude Code **skill** — a `SKILL.md` that orchestrates deterministic `scripts/**/*.sh` plus the `adam` sub-agent. The shell scripts do the parts that don't need an LLM (graph queries, drift detection, stack sniffing, file walking), so the model only spends tokens on the parts that actually require judgment. Natural-language triggers fire the same skills, so you don't have to type the slash form.
+Each slash command is a Claude Code **skill** pairing deterministic shell scripts with the `adam` sub-agent. The shell handles what doesn't need an LLM (graph queries, drift detection, stack sniffing, file walking); the model spends tokens only where judgment matters. Natural-language triggers fire the same skills — no need to type the slash form.
 
-### `/setup` — first-time scaffolding
-Strict 8-phase pipeline. Two deterministic scripts front-load the boring work:
-- **`scripts/tools/setup-graph.sh`** — verifies `gitnexus` is on PATH, runs `gitnexus analyze` if `.gitnexus/` is missing, strips the auto-injected `<!-- gitnexus:start -->` block from `CLAUDE.md` (its prescriptive boilerplate measurably bias the model), and merges the `gitnexus` MCP entry into `.mcp.json` without clobbering existing servers. Emits a single JSON status line the skill parses.
-- **`scripts/template/write-spec-rules.sh`** — copies the plugin's `templates/spec-rules/*.md` into `<project>/spec/rules/` (the three workflow recipes that never change per project).
+| Skill | What | How |
+|---|---|---|
+| **`/setup`** | turn a virgin repo into a spec-driven one | 8-phase pipeline: GitNexus index → `spec/rules/` copy → adam scaffolds `overview`/`project/`/`concepts/`/`INDEX.md` → pipelines viewer → three `AskUserQuestion` menus (hooks/subagents/skills) → `.claude/` artifacts → `CLAUDE.md` last → spec-lint → token-cost brief |
+| **`/spec-create <topic>`** | add one new spec | GitNexus preflight emits a `{symbols, files, edges}` briefing so the agent doesn't re-grep, a stack-specific seed enforces consistent shape (anchors block + How-to recipe), result is `spec/<topic>.md` with verified `file:line:symbol` anchors and INDEX + CLAUDE.md re-woven |
+| **`/spec-create <topic> --pipeline`** | add an HTML workflow walkthrough | writes `spec/pipelines/<topic>.html` with embedded Mermaid flow chart + brief + steps; manifest updater re-scans the folder and rewrites the inlined index in `spec/pipelines.html` (sidebar + iframe viewer, `file://`-safe). Audit-exempt |
+| **`/spec-update [path]`** | drift refresh | anchor-drift script asks GitNexus to resolve every spec's `anchors:` frontmatter, partitions output into `{drifted, clean, unchecked}` — clean specs are skipped entirely, drifted get a focused agent prompt naming the broken anchors. Single-path mode bypasses the partition |
+| **`/spec-audit`** | read-only health check | `spec-lint` MCP + `spec-graph-xref` (dangling paths = errors, unresolved symbols = warnings) + `token-count` MCP, formatted into one report. No rewrites — point at `/spec-update` to fix |
+| **`/claude-add [agent\|skill\|hook]`** | add one automation | the interactive one: `AskUserQuestion` resolves the kind, agent reads CLAUDE.md + relevant specs for grounding, writes the file, then **merges** (read-splice-write-back) `.claude/settings.json` for hooks — never overwrites |
 
-Then the `adam` sub-agent scaffolds `spec/overview.md`, `spec/project/*`, `spec/concepts/*`, and `spec/INDEX.md`, returning the stack signals it detected. The skill builds three per-class `AskUserQuestion` menus (hooks, subagents, skills) from those signals, writes only the items you tick, generates `CLAUDE.md` last so it can reference the actual `.claude/` artifacts in scope, then runs the `spec-lint` MCP and prints a final brief.
-
-### `/spec-create <topic>` — add one new spec
-Two deterministic scripts gather code-grounded context before the agent writes a single line:
-- **`scripts/tools/spec-preflight.sh`** — calls `gitnexus query` + `gitnexus context` for the topic (and any path hints you pass), flattens incoming/outgoing edge sets, and emits a JSON briefing: `{topic, candidates: [{name, uid, kind, file, line, incoming, outgoing}], primary_files, …}`. The agent treats the briefing as canonical and skips re-grepping for symbols already resolved.
-- **`scripts/template/select-seed.sh`** — sniffs `package.json` deps, `pyproject.toml`, `requirements*.txt`, and `manage.py` to pick the right `templates/specs/<stack>.md` seed (currently `nextjs`, `hono`, `fastapi`, `django`). The seed enforces a consistent shape across specs — anchors block, How-to recipe, conventions list.
-
-The agent gets briefing + seed in one prompt, writes `spec/<topic>.md` with verified `file:line:symbol` anchors, then re-weaves `spec/INDEX.md` and the `CLAUDE.md` spec table (token counts via the `token-count` MCP).
-
-### `/spec-update [path]` — drift refresh
-Two deterministic scripts scope the agent's work to specs that actually need rewriting:
-- **`scripts/utils/strip-gitnexus-block.sh`** — removes the `<!-- gitnexus:start -->` block that `gitnexus analyze` re-injects into `CLAUDE.md` on every run, so the agent reads the version adam actually authored.
-- **`scripts/tools/check-anchors.sh`** — walks every `spec/**/*.md`, parses the machine-readable `anchors:` frontmatter list, asks GitNexus to resolve each entry, and partitions output into `{drifted, clean, unchecked}`. Specs in `clean` are skipped entirely; specs in `drifted` get a focused agent prompt naming the broken anchors; specs in `unchecked` (no `anchors:` yet) fall back to a full re-read and get an anchors block added for next time.
-
-Single-path mode (`/spec-update spec/foo.md`) skips the partition and goes straight to a single-spec rewrite.
-
-### `/spec-audit` — read-only health check
-One deterministic script plus two MCP calls, no agent dispatch:
-- **`spec-lint` MCP** — checks `spec/INDEX.md` ↔ `spec/*.md` coverage, `CLAUDE.md` spec table consistency, frontmatter, cross-references, and per-spec token ceilings.
-- **`scripts/validators/spec-graph-xref.sh`** — reports two distinct classes of dangling references: **errors** for backticked file paths in spec bodies that don't exist on disk, **warnings** for symbols in `## Anchors` tables that don't resolve in GitNexus.
-- **`token-count` MCP** — per-spec token counts for the summary table.
-
-The skill formats the combined result as a single readable report and points you at `/spec-update` for any errors.
-
-### `/claude-add [agent|skill|hook]` — add one automation
-No backing script — this one is intentionally interactive. The skill resolves the kind via `AskUserQuestion` (if not given), reads `CLAUDE.md` + the relevant `spec/*.md` for grounding, asks at most two follow-ups for missing details, then delegates writing to the `adam` sub-agent. For hooks, the command body always lands in `.claude/hooks/<name>.sh` (executable, with shebang); `.claude/settings.json` is **merged** (read, splice, write back), never overwritten.
+### `/setup` extras
+- `--force` — wipe and rebuild against a populated `spec/`.
+- `--merge` — **mine** the existing `spec/` + `CLAUDE.md` into adam's layout instead of nuking; the agent maps each existing doc to its closest adam slot, preserves prose verbatim where it already reads adam-style, and reports what couldn't be mapped under *Left for review*.
+- Free-text focus — `/setup focus on the auth submodule and the websocket dispatcher` biases P2 toward the named areas without dropping baseline coverage.
 
 ### Background hook
-A small `PostToolUse` hook re-indexes the graph after every edit, so the next prompt sees current state. No agent-visible noise.
+A `PostToolUse` hook re-indexes the graph after every edit so the next prompt sees current state. Detached, lockfile-guarded, silent — no agent-visible noise.
 
 ## What lands in your repo
 
@@ -104,7 +86,7 @@ your-project/
 ├── .mcp.json                # gitnexus MCP entry (merged)
 ├── .gitnexus/               # graph index — gitignore if you prefer
 ├── spec/
-│   ├── INDEX.md             # one row per spec, all folders combined
+│   ├── INDEX.md             # one row per markdown spec, all folders combined
 │   ├── overview.md          # high-level "what is this project"
 │   ├── rules/               # adam workflow rules — IDENTICAL across projects
 │   │   ├── refactor.md      # cross-file refactor recipe
@@ -114,8 +96,11 @@ your-project/
 │   │   ├── frontend.md
 │   │   ├── backend.md
 │   │   └── stack.md
-│   └── concepts/            # deep walkthroughs of important subsystems
-│       └── <subsystem>.md   # each with an Anchors block + "How to add a new X" recipe
+│   ├── concepts/            # deep walkthroughs of important subsystems
+│   │   └── <subsystem>.md   # each with an Anchors block + "How to add a new X" recipe
+│   ├── pipelines.html       # global viewer (sidebar + iframe), opens via file://
+│   └── pipelines/           # user-facing HTML workflow walkthroughs (audit-exempt)
+│       └── <workflow>.html  # embedded Mermaid flow chart + brief + steps
 └── .claude/                 # only what you opted into
     ├── agents/<name>.md
     ├── hooks/<name>.sh

@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>/adam:setup — pipeline</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script type="application/adam-pipeline+json" id="pipeline-meta">
+{
+  "slug": "adam-setup-flow",
+  "title": "/adam:setup — the 8-phase scaffold",
+  "description": "How adam turns a virgin repo into a spec-driven Claude Code project, from gitnexus index to the final token-cost brief",
+  "tags": ["setup", "scaffold", "agent+scripts"],
+  "updated": "2026-05-13"
+}
+</script>
+
+<style>
+  :root {
+    --bg:            #000000;
+    --bg-elevated:   #0a0a0a;
+    --bg-elevated-2: #111111;
+    --border:        #1c1c1c;
+    --border-strong: #2a2a2a;
+    --ink:           #f0f0f0;
+    --ink-soft:      #9a9a9a;
+    --ink-dim:       #555555;
+    --accent:        #ffffff;
+    --accent-cool:   #7aa2ff;
+    --serif:  'Newsreader', 'Source Serif Pro', Georgia, serif;
+    --sans:   'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono:   ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+  body { line-height: 1.6; }
+
+  header {
+    padding: 64px 56px 36px;
+    border-bottom: 1px solid var(--border);
+    max-width: 1080px; margin: 0 auto;
+  }
+  header .eyebrow {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.22em;
+    color: var(--accent-cool); margin-bottom: 14px;
+  }
+  header h1 {
+    font-family: var(--serif); font-size: 44px; font-weight: 500;
+    margin: 0 0 14px; letter-spacing: -0.018em; line-height: 1.1;
+  }
+  header h1 em { font-style: italic; color: var(--ink-soft); }
+  header .desc {
+    color: var(--ink-soft); font-size: 16px; max-width: 760px; line-height: 1.65;
+  }
+  header .tags { margin-top: 22px; display: flex; gap: 8px; flex-wrap: wrap; }
+  header .tag {
+    font-size: 11px; padding: 3px 10px; border-radius: 999px;
+    background: transparent; border: 1px solid var(--border-strong);
+    color: var(--ink-soft); letter-spacing: 0.04em;
+  }
+
+  main { padding: 16px 56px 80px; max-width: 1080px; margin: 0 auto; }
+  section { margin-top: 48px; }
+  section > h2 {
+    font-family: var(--serif);
+    font-size: 13px; text-transform: uppercase; letter-spacing: 0.18em;
+    color: var(--ink-dim); margin: 0 0 18px;
+    padding-bottom: 8px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  section > h2::before {
+    content: ""; display: inline-block; width: 16px; height: 1px;
+    background: var(--accent-cool);
+  }
+
+  .panel {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    padding: 22px 26px;
+  }
+  .brief { font-size: 16px; }
+  .brief p { margin: 0 0 14px; color: var(--ink); }
+  .brief p:last-child { margin-bottom: 0; }
+  .brief code { background: var(--bg-elevated-2); padding: 2px 7px; border: 1px solid var(--border); border-radius: 2px; font-family: var(--mono); font-size: 0.88em; }
+  .brief strong { color: var(--ink); font-weight: 600; }
+  .brief em { color: var(--ink); font-style: italic; }
+
+  .mermaid {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    padding: 36px 24px;
+    overflow-x: auto; text-align: center;
+    font-family: var(--mono);
+  }
+
+  .steps { counter-reset: step; padding: 0; list-style: none; margin: 0; }
+  .steps > li {
+    counter-increment: step;
+    position: relative;
+    padding: 18px 22px 18px 88px;
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    margin-bottom: 10px;
+  }
+  .steps > li::before {
+    content: "P" counter(step);
+    position: absolute; left: 22px; top: 18px;
+    color: var(--accent-cool);
+    font-family: var(--serif); font-style: italic;
+    font-size: 20px; letter-spacing: 0.02em;
+  }
+  .steps > li.alt::before { content: "P2b"; font-size: 18px; }
+  .steps .step-title {
+    font-family: var(--serif); font-weight: 500;
+    font-size: 17px; margin-bottom: 4px; color: var(--ink);
+  }
+  .steps .step-meta { color: var(--ink-soft); font-size: 14px; line-height: 1.65; }
+  .steps .step-meta code { font-family: var(--mono); }
+
+  table {
+    width: 100%; border-collapse: collapse; font-size: 14px;
+    background: var(--bg-elevated); border: 1px solid var(--border);
+  }
+  th, td {
+    text-align: left; padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: 0; }
+  th {
+    color: var(--ink-dim); font-weight: 500;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em;
+    background: var(--bg);
+    font-family: var(--sans);
+  }
+  td { color: var(--ink); }
+  td code { font-family: var(--mono); }
+
+  code { font-family: var(--mono); background: var(--bg-elevated-2); padding: 1px 6px; border-radius: 2px; font-size: 0.92em; border: 1px solid var(--border); }
+  a { color: var(--accent); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: var(--accent); }
+
+  ul.fmodes { margin: 0; padding-left: 18px; }
+  ul.fmodes li { margin-bottom: 10px; color: var(--ink); line-height: 1.65; }
+  ul.fmodes li::marker { color: var(--accent-cool); }
+  ul.fmodes strong { font-family: var(--serif); font-style: italic; font-weight: 500; color: var(--ink); }
+
+  footer {
+    max-width: 1080px; margin: 0 auto;
+    padding: 36px 56px 80px;
+    color: var(--ink-dim);
+    font-family: var(--serif); font-style: italic; font-size: 13px;
+    border-top: 1px solid var(--border);
+    text-align: right;
+  }
+  ::selection { background: var(--accent); color: var(--bg); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">pipeline · demo</div>
+  <h1>/adam:setup <em>— the eight-phase scaffold</em></h1>
+  <div class="desc">
+    A strict, dependency-ordered pipeline that turns a virgin repo into a spec-driven Claude Code project. Deterministic shell scripts handle the boring work (graph indexing, template copying, drift checks, token aggregation); the <code>adam</code> sub-agent only burns tokens where judgment matters (stack detection, prose, anchor selection). The final brief reports session-wide token cost so the run pays for itself.
+  </div>
+  <div class="tags">
+    <span class="tag">setup</span>
+    <span class="tag">scaffold</span>
+    <span class="tag">agent+scripts</span>
+  </div>
+</header>
+
+<main>
+
+<section>
+  <h2>Flow</h2>
+  <div class="mermaid">
+flowchart TD
+  U(["User runs /adam:setup"]) --> A["Parse args"]
+  A --> P0{"P0 · gitnexus on PATH?"}
+  P0 -- "no" --> X0(["Stop · install gitnexus"])
+  P0 -- "yes" --> I["setup-graph.sh<br/>index · strip block · merge MCP"]
+  I --> P1["P1 · copy templates/rules/*.md<br/>spec/rules/"]
+  P1 --> G{"spec/ already populated?"}
+  G -- "empty" --> P2["P2 · agent scaffolds<br/>overview · project · concepts · INDEX"]
+  G -- "populated, no flag" --> X1(["Stop · use /spec-update, --merge, or --force"])
+  G -- "merge mode" --> P2M["P2 merge-mode<br/>port existing spec/ + CLAUDE.md<br/>into adam's slots"]
+  G -- "force mode" --> P2
+  P2 --> P2b["P2b · install spec/pipelines.html<br/>+ empty spec/pipelines/"]
+  P2M --> P2b
+  P2b --> P3["P3 · three menus<br/>hooks · subagents · skills"]
+  P3 --> P4["P4 · write picked items<br/>merge .claude/settings.json"]
+  P4 --> P5["P5 · agent writes CLAUDE.md<br/>mirrors INDEX.md"]
+  P5 --> P6{"P6 · spec-lint clean?"}
+  P6 -- "errors" --> F["Re-dispatch with error list"]
+  F --> P6
+  P6 -- "clean" --> P7["P7 · session-token-usage.sh"]
+  P7 --> E(["Print brief"])
+
+  classDef stop fill:#150808,stroke:#5a3030,color:#e0c8c8
+  classDef done fill:#0a1a0a,stroke:#3a5a3a,color:#c8e0c8
+  class X0,X1 stop
+  class E done
+  </div>
+</section>
+
+<section>
+  <h2>Brief</h2>
+  <div class="brief panel">
+    <p>The setup pipeline is the one place adam writes opinionated artifacts into the user's project. Every other skill (<code>/spec-create</code>, <code>/spec-update</code>, <code>/spec-audit</code>, <code>/claude-add</code>) builds on the layout this pipeline establishes — so order and idempotency matter.</p>
+    <p>Phases divide cleanly. <strong>P0–P2b</strong> are mechanical: scripts plus a single agent dispatch, no user input. <strong>P3</strong> is interactive — three <code>AskUserQuestion</code> menus, one per <code>.claude/</code> artifact class. <strong>P4–P5</strong> write the chosen artifacts and the final brief. <strong>P6–P7</strong> verify and report.</p>
+    <p><code>CLAUDE.md</code> is written <em>last</em> on purpose: it references the actual <code>.claude/agents</code> · <code>.claude/skills</code> · <code>.claude/hooks</code> entries that exist at the time of writing, not a guess about what the user might pick.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Steps</h2>
+  <ol class="steps">
+    <li>
+      <div class="step-title">Knowledge-graph bootstrap</div>
+      <div class="step-meta"><code>scripts/tools/setup-graph.sh</code>: verifies <code>gitnexus</code> is on PATH (hard stop if missing), runs <code>gitnexus analyze</code> if <code>.gitnexus/</code> is absent, strips the auto-injected <code>&lt;!-- gitnexus:start --&gt;</code> block from <code>CLAUDE.md</code> (its boilerplate measurably biases the model), and merges a <code>gitnexus</code> entry into <code>.mcp.json</code>. Emits one JSON line the skill parses.</div>
+    </li>
+    <li>
+      <div class="step-title">Copy the rules</div>
+      <div class="step-meta"><code>scripts/template/write-spec-rules.sh</code>: copies <code>templates/rules/*.md</code> (refactor · additive · orient) into <code>&lt;project&gt;/spec/rules/</code>. These three workflow recipes are project-agnostic and identical across every adam installation; they are the bench-validated behavior contract.</div>
+    </li>
+    <li>
+      <div class="step-title">Spec scaffolding</div>
+      <div class="step-meta">Agent dispatched in scaffold-only mode. It detects the stack (manifest files, framework markers, top-level subsystem dirs) and writes <code>spec/overview.md</code>, <code>spec/project/&lt;area&gt;.md</code>, <code>spec/concepts/&lt;subsystem&gt;.md</code>, and <code>spec/INDEX.md</code> with token counts via the <code>token-count</code> MCP. A focus instruction from <code>$ARGUMENTS</code> biases which subsystems get deeper coverage. In <code>--merge</code> mode the agent first reads the pre-existing <code>spec/**</code> + <code>CLAUDE.md</code> and ports valuable content into adam's slots instead of writing from scratch. <code>CLAUDE.md</code> is NOT written in this phase.</div>
+    </li>
+    <li class="alt">
+      <div class="step-title">Pipelines viewer</div>
+      <div class="step-meta"><code>scripts/template/write-pipelines-viewer.sh</code>: installs <code>spec/pipelines.html</code> (this viewer) and an empty <code>spec/pipelines/</code> folder. Individual pipeline-specs (like this file) are written on demand via <code>/adam:spec-create &lt;topic&gt; --pipeline</code> — the setup pipeline never auto-generates them.</div>
+    </li>
+    <li>
+      <div class="step-title">Three per-class menus</div>
+      <div class="step-meta">Three <code>AskUserQuestion</code> calls — one for hooks, one for subagents, one for skills. Candidates are built from the stack signals the P2 agent returned (Python+ruff → ruff-format hook; FastAPI → route-reviewer agent; etc.). User ticks what they want. Empty classes are silently skipped. <strong>This phase is mandatory</strong> — no auto-additions, no defaults.</div>
+    </li>
+    <li>
+      <div class="step-title">Create only what was picked</div>
+      <div class="step-meta">Agent dispatched in claude-add mode for each ticked item. Hooks land in <code>.claude/hooks/&lt;name&gt;.sh</code> (with shebang, <code>chmod +x</code>); <code>.claude/settings.json</code> is <em>merged</em> (read-splice-write-back), never overwritten. Sub-agents and skills land in <code>.claude/agents/&lt;name&gt;.md</code> and <code>.claude/skills/&lt;name&gt;/SKILL.md</code>.</div>
+    </li>
+    <li>
+      <div class="step-title">Write CLAUDE.md</div>
+      <div class="step-meta">Agent dispatched in finalize mode. CLAUDE.md follows an 8-section structure — project paragraph · stack · runtime shape · spec index table · response style · spec/graph routing · editing rules · refresh pointer. The spec table mirrors <code>spec/INDEX.md</code> with live token counts. In <code>--merge</code> mode, user-authored sections of the prior CLAUDE.md are preserved under a <code>## Project notes</code> heading.</div>
+    </li>
+    <li>
+      <div class="step-title">spec-lint verify</div>
+      <div class="step-meta">The bundled <code>spec-lint</code> MCP validates frontmatter, cross-references, token ceilings, and <code>spec/INDEX.md</code> ↔ <code>CLAUDE.md</code> consistency. Errors are fixed by re-dispatching the agent with the issue list; warnings surface in the brief but don't block. Re-run until <code>errors: []</code>.</div>
+    </li>
+    <li>
+      <div class="step-title">Final brief</div>
+      <div class="step-meta"><code>scripts/tools/session-token-usage.sh</code>: aggregates <code>message.usage</code> across every assistant message in the current session JSONL, then the skill prints a single brief — graph stats, spec inventory, project automations, CLAUDE.md token count, lint summary, and the new <strong>Tokens consumed (this session)</strong> line so the user can see what setup cost.</div>
+    </li>
+  </ol>
+</section>
+
+<section>
+  <h2>Touched surfaces</h2>
+  <table>
+    <thead><tr><th>Path</th><th>Phase</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td><code>.gitnexus/</code></td><td>P0</td><td>knowledge-graph index, regenerated by background hook after edits</td></tr>
+      <tr><td><code>.mcp.json</code></td><td>P0</td><td><code>mcpServers.gitnexus</code> entry merged in, unrelated entries preserved</td></tr>
+      <tr><td><code>CLAUDE.md</code></td><td>P0 strip · P5 write</td><td>brief + spec index + routing rules; ≤ ~2000 tokens by design</td></tr>
+      <tr><td><code>spec/rules/*.md</code></td><td>P1</td><td>three project-agnostic workflow recipes</td></tr>
+      <tr><td><code>spec/overview.md</code>, <code>spec/project/*</code>, <code>spec/concepts/*</code>, <code>spec/INDEX.md</code></td><td>P2</td><td>the spec tree; tokens counted via the <code>token-count</code> MCP</td></tr>
+      <tr><td><code>spec/pipelines.html</code>, <code>spec/pipelines/</code></td><td>P2b</td><td>HTML viewer + empty workflow folder, ready for <code>/spec-create --pipeline</code></td></tr>
+      <tr><td><code>.claude/agents</code>, <code>.claude/skills</code>, <code>.claude/hooks</code>, <code>.claude/settings.json</code></td><td>P3 → P4</td><td>only the artifacts the user ticked; <code>settings.json</code> always merged, never overwritten</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Failure modes</h2>
+  <div class="panel">
+    <ul class="fmodes">
+      <li><strong>gitnexus missing</strong> — P0 exits non-zero with <code>npm install -g gitnexus</code> hint. The skill relays it verbatim and stops; every later phase depends on a working graph.</li>
+      <li><strong>spec/ already populated, no flag</strong> — the gate after P1 bails out and points the user at <code>/adam:spec-update</code>, <code>/adam:setup --merge</code>, or <code>/adam:setup --force</code>.</li>
+      <li><strong>P2 agent fails to write</strong> — the skill stops before P2b. The viewer install is best-effort but the spec tree is load-bearing.</li>
+      <li><strong>spec-lint errors at P6</strong> — re-dispatch loop until <code>errors: []</code>. Warnings surface in the brief but don't block.</li>
+      <li><strong>session-token-usage.sh can't find the session</strong> — the brief prints "not available" for the Tokens line. Setup still completes; the metric is optional.</li>
+      <li><strong>User picks zero items in P3 menus</strong> — that's fine. <code>.claude/</code> stays empty; the CLAUDE.md in P5 just omits the "Project automations" subsection.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer>and the rules he set, were not for the place — but for the work done within it.</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: "base",
+    themeVariables: {
+      darkMode: true,
+      background:        "#0a0a0a",
+      primaryColor:      "#0d0d0d",
+      primaryTextColor:  "#f0f0f0",
+      primaryBorderColor:"#2a2a2a",
+      lineColor:         "#9a9a9a",
+      secondaryColor:    "#141414",
+      tertiaryColor:     "#0a0a0a",
+      edgeLabelBackground:"#0a0a0a",
+      titleColor:        "#f0f0f0",
+      noteBkgColor:      "#0a0a0a",
+      noteBorderColor:   "#2a2a2a",
+      clusterBkg:        "#0a0a0a",
+      clusterBorder:     "#1c1c1c",
+      fontFamily:        "'Inter', system-ui, sans-serif"
+    },
+    flowchart: { htmlLabels: true, curve: "basis", padding: 20 },
+    securityLevel: "loose"
+  });
+</script>
+
+</body>
+</html>

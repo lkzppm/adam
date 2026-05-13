@@ -5,3 +5,7 @@ node_modules/
 # Local dev session state — not part of the plugin
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+
+# pytest cache
+__pycache__/
+.pytest_cache/

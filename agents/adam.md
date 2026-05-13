@@ -207,7 +207,7 @@ The parent `setup` skill dispatches you for spec scaffolding **only**. Do **NOT*
 
 The parent skill may pass a **focus instruction** in the prompt — free-text guidance like "focus on the auth submodule and the websocket dispatcher". When present, treat it as a coverage-shaping hint: emphasize the named subsystems/concepts in `spec/concepts/*.md` (deeper walkthroughs, more anchors), promote them up the reading order in `INDEX.md`, and give them dedicated `spec/project/*.md` entries when their conventions are non-trivial. Do NOT drop baseline coverage — `overview.md` and `spec/project/stack.md` always ship. If focus is empty, run unbiased detection.
 
-The parent skill may also indicate **merge mode** (`--merge`). In merge mode, the project already has a populated `spec/` + `CLAUDE.md` written in the user's own conventions. Before scaffolding from detection, read everything in `spec/**/*.md` and the current `CLAUDE.md`, then port each existing doc into the closest adam slot (`overview.md`, `project/<area>.md`, `concepts/<subsystem>.md`) — preserve prose verbatim where it's already terse and anchored, rewrite where it's verbose or duplicates `rules/*.md`. Overwrite freely at adam-shaped paths; leave existing files at non-adam-shaped paths in place and surface them under **Left for review** in your report. Always include a **Ported from** section mapping each mined file → the adam file that absorbed it. If merge mode is inactive, scaffold purely from detection.
+The parent skill may also indicate **merge mode** (`--merge`). In merge mode, the project already has a populated `spec/`, a `CLAUDE.md`, and (often) a `.claude/` directory with hand-built automations — all in the user's own conventions. Before scaffolding from detection, read everything in `spec/**/*.md`, the current `CLAUDE.md`, **and the existing `.claude/` directory** (`.claude/agents/*.md`, `.claude/skills/*/SKILL.md`, `.claude/hooks/*`, `.claude/settings.json`). Port each existing spec doc into the closest adam slot (`overview.md`, `project/<area>.md`, `concepts/<subsystem>.md`) — preserve prose verbatim where it's already terse and anchored, rewrite where it's verbose or duplicates `rules/*.md`. Overwrite freely at adam-shaped paths; leave existing files at non-adam-shaped paths in place and surface them under **Left for review** in your report. **Do not write to `.claude/`** — the parent skill owns those writes in P3+P4. Your job is to inventory what's there so the menus can skip duplicates. Always include a **Ported from** section mapping each mined file → the adam file that absorbed it, AND an **Existing automations** section listing every `.claude/` artifact you found (agents, skills, hooks, and notable `settings.json` keys) so the parent skill can filter its P3 menus against them. If merge mode is inactive, scaffold purely from detection and skip both sections.
 
 1. Run detection (above).
 2. **`spec/rules/`** — *do not write yourself*. The parent `setup` skill called `scripts/template/write-spec-rules.sh` deterministically in P1. Trust it ran. Files: `refactor.md`, `additive.md`, `orient.md`.
@@ -217,7 +217,8 @@ The parent skill may also indicate **merge mode** (`--merge`). In merge mode, th
 6. **`spec/INDEX.md`** — table with one row per spec across all three folders, in reading order: `overview.md`, then `project/*`, then `concepts/*`, then `rules/*`. Columns: `Spec | Read when… | Tokens`. **Use the `token-count` MCP** to fill the Tokens column.
 7. Report:
    - **Created** — every file you wrote, by folder.
-   - **Detection signals** — explicit list of stack tags (e.g. `nextjs`, `python+ruff`, `postgres+schema-sql`, `tailwindv4`, `docker-compose`, `tests-pytest`). The parent skill uses these to build the P3 menu candidates — be explicit, don't bury them in prose.
+   - **Detection signals** — explicit list of stack tags (e.g. `nextjs`, `python+ruff`, `postgres+schema-sql`, `tailwindv4`, `docker-compose`, `tests-pytest`). The parent skill uses these to build the P3 hook/subagent/skill menu candidates — be explicit, don't bury them in prose.
+   - **Candidate workflows** — 0–3 substantive user/operator-facing flows worth a pipeline-spec walkthrough. Only what you can substantiate from real code (an auth route, a checkout endpoint, a deploy script, a queue consumer, a CRON job). Each entry: `{slug, title, description, path_hints[]}`. **No padding.** The parent skill turns these into the P3 pipelines menu; accepted ones become `spec/pipelines/<slug>.html` in P4. If the project is a library, infra shim, or otherwise has no user-facing flow, return an empty list.
    - **Notes** — anything you noticed but did not act on.
 
 Do **NOT** lint here — `spec-lint` runs in P6 after CLAUDE.md exists. Do **NOT** write CLAUDE.md.
@@ -312,6 +313,12 @@ Ported from:           (merge mode only)
 
 Left for review:       (merge mode only — existing files at non-adam paths)
   - <path> — <one-line: what it is, suggested follow-up>
+
+Existing automations:  (merge mode only — inventory of pre-existing .claude/, NOT modified)
+  Agents:    - <name>.md — <description from frontmatter>
+  Skills:    - <name>/SKILL.md — <description>
+  Hooks:     - <name>.sh — <matcher from settings.json, e.g. "PostToolUse Edit|Write *.py">
+  settings:  - <notable top-level keys, e.g. permissions, env, model>
 
 Lint:
   - <result of spec-lint, e.g. "0 issues" or "2 warnings: <summary>">

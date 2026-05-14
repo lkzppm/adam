@@ -8,7 +8,7 @@ description: One-time scaffolding of a spec-driven Claude Code workflow in this 
 Strict pipeline. **Do not reorder, do not skip phases, do not write `.claude/` artifacts without going through the AskUserQuestion menus.** Each phase has an output the next phase consumes.
 
 ```
-P0  gitnexus analyze   ── hard prerequisite, cuts the run if missing
+P0  gitnexus analyze   ── unconditional first action; script is idempotent
 P1  spec/rules/        ── deterministic copy from the plugin
 P2  spec scaffolding   ── overview + project/ + concepts/ + INDEX.md (NO CLAUDE.md yet)
 P2b pipelines viewer   ── install spec/pipelines.html + empty spec/pipelines/
@@ -19,12 +19,33 @@ P6  spec-lint verify   ── MCP call, surface + try to fix
 P7  final brief        ── enumerate the features now active
 ```
 
+## Phase 0 — gitnexus analyze (FIRST ACTION, unconditional)
+
+**This is the very first thing you do in any `/setup` invocation.** Before parsing `$ARGUMENTS`, before checking whether `spec/` is populated, before deciding `--force` vs `--merge`, before any reasoning about what the user wants — call the script. The script is idempotent: if the project is already indexed it returns `"indexed":"already"` in milliseconds, so there is no cost to running it every time. **There is no condition under which you skip this call.**
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/tools/setup-graph.sh "$PWD"
+```
+
+The script:
+
+1. Verifies `gitnexus` is on PATH. **If missing, exits non-zero with a clear `npm install -g gitnexus` hint** — relay that to the user verbatim and **stop the entire pipeline**. Do not proceed to Arguments parsing or P1.
+2. Runs `gitnexus analyze` (or `--skip-git` for non-git folders) if `.gitnexus/` is absent. If present, reports `"indexed":"already"` and moves on.
+3. Strips the `<!-- gitnexus:start -->...<!-- gitnexus:end -->` block that `gitnexus analyze` auto-writes into `CLAUDE.md` on first run — its prescriptive rules measurably bias the model toward extra exploration turns.
+4. Merges `gitnexus` into `.mcp.json` under `mcpServers` (creates the file or splices into an existing one — never overwrites unrelated entries).
+
+The script emits a single JSON object on stdout, e.g. `{"status":"ok","indexed":"true","stripped":"false","mcp":"created","stats":{"nodes":735,"edges":940,"clusters":18,"processes":16},...}`. **Hold the stats** — you'll surface them in the final brief.
+
+If `status != "ok"`, surface the script's stderr and stop — every later phase depends on a working graph.
+
+**Only after the script returns ok** do you move on to parse `$ARGUMENTS` and check the populated-spec bail-out below.
+
 ## Arguments
 
-Parse `$ARGUMENTS` before phase 0:
+After P0 completes, parse `$ARGUMENTS`:
 
 - `--force` token → set `force = true`. Allows the run to proceed even if `spec/` already has content; agent writes from scratch and ignores whatever was there.
-- `--merge` token → set `merge = true`. Also lifts the populated-spec bail-out. The agent **reads** existing `spec/**/*.md`, the current `CLAUDE.md`, and the project's `.claude/` directory (agents, skills, hooks, settings.json) — mining the first two for spec content (port subsystems into `concepts/`, conventions into `project/`, high-level prose into `overview.md`) and inventorying the third so P3 doesn't propose duplicating automations the user already has. If both `--force` and `--merge` are passed, `--merge` wins (and `force` is treated as redundant).
+- `--merge` token → set `merge = true`. Also lifts the populated-spec bail-out. **If merge is true, immediately `Read` `${CLAUDE_PLUGIN_ROOT}/skills/setup/_merge.md` for the merge-specific behavior** — that file extends P2, P3, P5, and P7. Without `--merge`, do NOT load it.
 - Everything else (after stripping `--force` and `--merge`) → trim, treat the remainder as a **focus instruction**. The user is telling you which subsystems, modules, or concepts to emphasize when picking what to write in `spec/project/*` and `spec/concepts/*`. Common shapes: `"focus on the auth submodule and the websocket dispatcher"`, `"focus: payments + the migration runner"`, `"prioritize the rendering pipeline"`. Hold the raw text — it is passed verbatim into the P2 agent prompt.
 
 If no focus text is present, the focus instruction is empty and P2 runs in unbiased detection mode. `--merge` and a focus instruction compose freely (focus narrows what to emphasize while mining).
@@ -35,26 +56,7 @@ If no focus text is present, the focus instruction is empty and P2 runs in unbia
 - Repo has `spec/` but it's empty / placeholder, OR
 - User explicitly asks for re-setup with `--force` (wipe) or `--merge` (mine existing)
 
-If `spec/` already contains content and neither `--force` nor `--merge` was passed, **stop and tell the user** to run `/adam:spec-update` instead (drift fix), `/adam:setup --merge` (migrate existing specs into adam's layout), or `/adam:setup --force` (wipe and rebuild).
-
-## Phase 0 — gitnexus analyze (hard prerequisite)
-
-GitNexus is a hard prerequisite — adam's anchors depend on a current `.gitnexus/` index. **Do not interpret these steps yourself; call the script.** It is idempotent and parseable.
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tools/setup-graph.sh "$PWD"
-```
-
-The script:
-
-1. Verifies `gitnexus` is on PATH. **If missing, exits non-zero with a clear `npm install -g gitnexus` hint** — relay that to the user verbatim and **stop the entire pipeline**. Do not proceed to P1.
-2. Runs `gitnexus analyze` (or `--skip-git` for non-git folders) if `.gitnexus/` is absent.
-3. Strips the `<!-- gitnexus:start -->...<!-- gitnexus:end -->` block that `gitnexus analyze` auto-writes into `CLAUDE.md` on first run — its prescriptive rules measurably bias the model toward extra exploration turns.
-4. Merges `gitnexus` into `.mcp.json` under `mcpServers` (creates the file or splices into an existing one — never overwrites unrelated entries).
-
-The script emits a single JSON object on stdout, e.g. `{"status":"ok","indexed":"true","stripped":"false","mcp":"created","stats":{"nodes":735,"edges":940,"clusters":18,"processes":16},...}`. **Hold the stats** — you'll surface them in the final brief.
-
-If `status != "ok"`, surface the script's stderr and stop — every later phase depends on a working graph.
+If `spec/` already contains content and neither `--force` nor `--merge` was passed, **stop and tell the user** to run `/adam:spec-update` instead (drift fix), `/adam:setup --merge` (migrate existing specs into adam's layout), or `/adam:setup --force` (wipe and rebuild). P0 has already run by this point — that's fine; `setup-graph.sh` is idempotent and a current `.gitnexus/` index is useful for whatever the user runs next.
 
 ## Phase 1 — spec/rules/ (deterministic copy)
 
@@ -86,9 +88,9 @@ Delegate to the `adam` sub-agent in **scaffold-only** mode:
 > 2. **Detection signals** — list the stack tags you observed (e.g. `nextjs`, `python+ruff`, `postgres+schema-sql`, `tailwindv4`, `docker-compose`, `tests-pytest`). The parent skill uses these to build the P3 hook/subagent/skill menu candidates.
 > 3. **Candidate workflows** — identify **0–3** user-facing or operator-facing workflows worth a pipeline-spec walkthrough. Only surface flows you can substantiate from real code (an auth route, a checkout endpoint, a deploy script, a CRON job, a webhook handler, a queue consumer, a long-running pipeline). For each, return a small JSON-shaped record: `{slug: kebab-case, title: 1-line, description: 1-line, path_hints: [2-4 file paths most relevant to the flow]}`. **Do not pad.** If nothing obvious presents (read-only library, infrastructure shim, plugin), return an empty list. The parent skill turns this into the P3 pipelines menu — every candidate the user accepts becomes a `spec/pipelines/<slug>.html` written in P4.
 >
-> **Merge mode (`--merge`, may be inactive):** if the parent skill set `merge = true`, the project already has a populated `spec/` tree, a `CLAUDE.md` indexing it, and (often) a `.claude/` directory with hand-built automations — all following the user's own conventions, not adam's. Before writing anything, read every existing `spec/**/*.md`, the current `CLAUDE.md`, **and the existing `.claude/` directory** (`.claude/agents/*.md`, `.claude/skills/*/SKILL.md`, `.claude/hooks/*`, `.claude/settings.json`). For each existing spec doc, decide its closest adam slot: high-level project prose → `overview.md`; style/convention notes → `spec/project/<area>.md`; deep subsystem walkthroughs → `spec/concepts/<subsystem>.md` (add an anchors block grounded in real symbols); workflow flowcharts → list them in the report as candidates for `/adam:spec-create <topic> --pipeline` (do NOT auto-write pipeline-specs). **Drop** any content that duplicates the `spec/rules/*.md` recipes — they are project-agnostic and the parent skill already wrote them in P1. **Preserve verbatim** any prose that already follows adam's terse style; lightly rewrite the rest. Overwrite freely at adam-shaped paths (e.g. `spec/overview.md`, `spec/project/<area>.md`), but **do not delete** existing files at non-adam-shaped paths (e.g. `spec/random-notes.md`) — leave them and report them under **Left for review** so the user can promote them via `/adam:spec-create` or remove them by hand. For the `.claude/` inventory: do NOT modify anything inside `.claude/` — the parent skill owns those writes in P3+P4. Just enumerate what exists and what it does. In your final report, add a **Ported from** section listing each existing spec path you mined and which new file absorbed it, AND an **Existing automations** section listing every `.claude/agents/*.md` (with the agent's purpose from its frontmatter `description:`), every `.claude/skills/*/SKILL.md` (with its purpose), every `.claude/hooks/*` (with the matcher from `settings.json` if known), and any non-trivial top-level keys in `settings.json` (permissions, env, model). The parent skill consumes this inventory in P3 to filter out menu candidates whose target file already exists — so be exhaustive: every existing artifact must appear, named exactly as it lives on disk (kebab-case basenames).
->
-> **Focus instruction from the user (may be empty):** `<focus instruction>`. If non-empty, bias your coverage decisions toward the named subsystems/concepts — write deeper `spec/concepts/<subsystem>.md` pages for them, give them a `spec/project/*.md` entry if the conventions are non-trivial, and put them higher in the reading order in `INDEX.md`. **Do not drop baseline coverage** (`overview.md` and `spec/project/stack.md` are always required). If focus is empty, run unbiased detection. Focus and merge mode compose: in merge mode, the focus instruction narrows which mined content gets priority placement.
+> **Focus instruction from the user (may be empty):** `<focus instruction>`. If non-empty, bias your coverage decisions toward the named subsystems/concepts — write deeper `spec/concepts/<subsystem>.md` pages for them, give them a `spec/project/*.md` entry if the conventions are non-trivial, and put them higher in the reading order in `INDEX.md`. **Do not drop baseline coverage** (`overview.md` and `spec/project/stack.md` are always required). If focus is empty, run unbiased detection.
+
+If `merge = true`, append the merge-mode block from `_merge.md` (section: "P2 — spec scaffolding under `--merge`") to the prompt before dispatching. Otherwise dispatch as-is.
 
 Surface the agent's report. If the agent reports failure, do not proceed to P2b.
 
@@ -116,8 +118,7 @@ Emits `{"status":"ok","viewer":"<path>","dir":"<path>","pipelines":N}`. Hold the
 
 Four candidate classes, four potential menus: **hooks**, **subagents**, **skills** (all drawn from the agent's `Detection signals`), and **pipelines** (drawn from the agent's `Candidate workflows`). Build candidates from the detection signals the agent returned in P2. The reference matrix for the first three:
 
-**Merge-mode filter (`--merge` only).** If the parent run is in merge mode, the agent's P2 report includes an **Existing automations** inventory listing every `.claude/agents/<name>.md`, `.claude/skills/<name>/SKILL.md`, and `.claude/hooks/<name>.*` already on disk. Before presenting any menu, drop every candidate whose target file already exists (e.g. inventory contains `.claude/agents/py-test-runner.md` → remove `py-test-runner` from the subagents menu). The user shouldn't be asked whether to install something they already have. After filtering, if a class has zero remaining candidates, **skip the menu silently** just as if no candidates had ever existed.
-
+If `merge = true`, apply the merge-mode filter described in `_merge.md` (section: "P3 — menu filter under `--merge`") before presenting any menu — it drops candidates whose target files already exist.
 
 | Detection signal | Hooks | Subagents | Skills |
 |---|---|---|---|
@@ -222,13 +223,7 @@ For each accepted item from the P3 menus, dispatch the `adam` sub-agent in **cla
 - **Hooks** → write the command body to `.claude/hooks/<kebab-name>.sh` (with `#!/usr/bin/env bash` + `set -euo pipefail`, then `chmod +x`), then merge a `{ "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/<kebab-name>.sh" }` entry into `.claude/settings.json` under the right matcher (read existing, splice in, write back). **Never inline command bodies into `settings.json`. Never overwrite — preserve unrelated hooks the user already has.**
 - **Sub-agents** → write `.claude/agents/<kebab-name>.md` with proper frontmatter (`name`, `description` enumerating trigger phrases, `model`, optional `tools`).
 - **Skills** → write `.claude/skills/<kebab-name>/SKILL.md` with frontmatter and substantive instructions.
-- **Pipelines** → dispatch the `adam` agent in pipeline-spec mode for each accepted workflow. Pass the candidate's `{slug, title, description, path_hints}` plus the contents of `${CLAUDE_PLUGIN_ROOT}/templates/pipelines/pipeline.html` as the seed. The agent fills every placeholder — `<PIPELINE_SLUG>` / `<PIPELINE_TITLE>` / `<one-line summary…>` / `<YYYY-MM-DD>` inside the JSON metadata block, and `{{PIPELINE_TITLE}}` / `{{BRIEF}}` / `{{AREA}}` / `{{ACTOR}}` in the HTML body — rewrites the placeholder `flowchart TD` block with the actual workflow grounded in the path hints, replaces the brief / steps / touched-surfaces / failure-modes sections, and writes `spec/pipelines/<slug>.html`. **The `<script type="application/adam-pipeline+json" id="pipeline-meta">` JSON block MUST stay parseable** — the manifest updater reads it. Do NOT touch `spec/INDEX.md` or the CLAUDE.md spec table — pipeline-specs live in the viewer's manifest, not the markdown index. After **all** accepted pipelines are written (one batched refresh, not one per pipeline), run:
-
-  ```bash
-  bash ${CLAUDE_PLUGIN_ROOT}/scripts/tools/update-pipelines-manifest.sh "$PWD"
-  ```
-
-  to refresh the sidebar in `spec/pipelines.html`. Surface any `errors[]` it reports and ask the agent to fix.
+- **Pipelines** → **only if the user accepted at least one item in the P3 pipelines menu, `Read` `${CLAUDE_PLUGIN_ROOT}/skills/setup/_pipelines.md` and follow it** for the agent dispatch shape, placeholder list, and batched manifest refresh. If no pipelines were accepted, skip this bullet entirely and do NOT load the file.
 
 Each file must be substantive — no placeholders, no stubs. If you cannot write something useful for an accepted item, drop it and note that in the final brief rather than ship a stub.
 
@@ -237,8 +232,8 @@ Each file must be substantive — no placeholders, no stubs. If you cannot write
 CLAUDE.md is generated **last** so it can reference the actual `.claude/` artifacts that now exist. Delegate to the `adam` agent in **finalize** mode:
 
 > Generate `CLAUDE.md` for the project. The spec tree is already in place, and `.claude/` now contains the artifacts the user accepted in P4. Use the structure documented in `agents/adam.md` (sections 1-8). The Spec Index table mirrors `spec/INDEX.md` with a Tokens column populated via the `token-count` MCP. If `.claude/agents/`, `.claude/skills/`, or `.claude/hooks/` contain entries, add a short "Project automations" subsection listing them. Do NOT touch `spec/` — it's frozen for this run.
->
-> **Merge mode (`--merge`, may be inactive):** if merge mode is active, read the **pre-existing** `CLAUDE.md` before overwriting. Preserve any user-authored sections that are NOT part of adam's standard 8-section structure — typically a custom response-style block, project-specific guardrails, links to internal docs, or domain glossary entries. Append them to the new file under a single `## Project notes` heading at the end (after section 8). If the existing CLAUDE.md only contained adam-style content (or was empty / placeholder), there's nothing to preserve.
+
+If `merge = true`, append the merge-mode block from `_merge.md` (section: "P5 — CLAUDE.md preservation under `--merge`") to the prompt before dispatching.
 
 ## Phase 6 — spec-lint verify
 
@@ -285,10 +280,7 @@ Specs
   spec/pipelines/                   ── <count> pipeline(s) so far
       written this run:               <slugs you wrote in P4, or "none">
 
-Existing automations  (merge mode only — preserved as-is from .claude/)
-  Hooks:     <names or "none">
-  Subagents: <names or "none">
-  Skills:    <names or "none">
+(If `merge = true`, insert the "Existing automations" block here per `_merge.md` — section "P7 — final brief addition under `--merge`". Omit it entirely in non-merge runs.)
 
 Project automations  (only what you picked this run)
   Hooks:     <names or "none">
@@ -314,7 +306,7 @@ Try next:
 
 ## Guardrails
 
-- **Phase order is strict.** P0 missing gitnexus → stop. P2 fails → stop. P2b is best-effort — if `write-pipelines-viewer.sh` fails, surface the error but continue to P3 (the viewer is non-load-bearing). Skipping P3 is a bug — even one accepted item must go through `AskUserQuestion`.
+- **Phase order is strict.** P0 is unconditional and runs before anything else — including argument parsing and the populated-spec bail-out; skipping it is a bug. P0 missing gitnexus → stop. P2 fails → stop. P2b is best-effort — if `write-pipelines-viewer.sh` fails, surface the error but continue to P3 (the viewer is non-load-bearing). Skipping P3 is a bug — even one accepted item must go through `AskUserQuestion`.
 - **Never write `.claude/` files outside P4.** No defaults, no "obvious" auto-additions.
 - **CLAUDE.md is P5, not P2.** It must reflect what `.claude/` actually contains by the time you write it.
 - **Never overwrite `.claude/settings.json`** — read, splice, write back.

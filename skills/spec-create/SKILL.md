@@ -9,17 +9,16 @@ Add ONE new spec to the project's spec set, then re-weave the index (markdown sp
 
 ## Mode selection — markdown spec vs pipeline-spec
 
-Inspect `$ARGUMENTS` for `--pipeline` (or interpret intent: "pipeline", "flow chart", "workflow walkthrough", "visual diagram of how X moves"). Two distinct flows below — they share Step 1 only.
+Inspect `$ARGUMENTS` for `--pipeline` (or interpret intent: "pipeline", "flow chart", "workflow walkthrough", "visual diagram of how X moves").
 
-- **Markdown spec** (default): grounded in symbols, anchored to code, lives in `spec/<topic>.md`, participates in the spec index + audit. Use the GitNexus preflight.
-- **Pipeline-spec** (`--pipeline`): user-facing HTML walkthrough of a workflow, lives in `spec/pipelines/<topic>.html`, **does not** appear in `spec/INDEX.md` or the CLAUDE.md table, and is **exempt** from spec-audit / spec-lint. Skip the preflight entirely (a workflow rarely maps to a single symbol; forcing the preflight produces empty briefings).
+- **Markdown spec** (default): grounded in symbols, anchored to code, lives in `spec/<topic>.md`, participates in the spec index + audit. Use the GitNexus preflight. Follow the rest of this file.
+- **Pipeline-spec** (`--pipeline`): user-facing HTML walkthrough, lives in `spec/pipelines/<topic>.html`, exempt from spec-audit/spec-lint. **`Read` `${CLAUDE_PLUGIN_ROOT}/skills/spec-create/_pipeline-mode.md` and follow it instead of the markdown-spec process below.** Without `--pipeline`, do NOT load that file.
 
 ## Preconditions
 
 - `spec/INDEX.md` must exist. If it doesn't → tell the user to run `/adam:setup` first and stop.
 - `CLAUDE.md` must contain a spec index table. If it doesn't → same.
 - The user must have specified (or implied) a topic. If unclear, ask.
-- **Pipeline mode** additionally requires `spec/pipelines.html` to exist (installed by `/adam:setup` Phase 2b). If it's missing, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/template/write-pipelines-viewer.sh "$PWD"` first to install it, then continue.
 
 ## Process — markdown spec (default)
 
@@ -69,48 +68,6 @@ Inspect `$ARGUMENTS` for `--pipeline` (or interpret intent: "pipeline", "flow ch
 
 6. Surface the agent's report.
 
-## Process — pipeline-spec (`--pipeline`)
-
-1. Confirm there isn't already a `spec/pipelines/<slug>.html` describing the same workflow (sidebar listing in `spec/pipelines.html` is the canonical view — read the inlined manifest block). If there is, propose `/adam:spec-update spec/pipelines/<existing>.html` instead.
-
-2. Pick a kebab-case `<slug>` from the topic. Today's date is the `updated` field.
-
-3. Collect a **light path-hint set** from the user's `$ARGUMENTS` and (if useful) one or two `gitnexus query` calls. Do **not** call `scripts/tools/spec-preflight.sh` — that script is shaped for symbol-anchored markdown specs and produces noisy/empty output for cross-cutting workflows. Path hints feed the agent's brief; they are not embedded in the file.
-
-4. Read the seed template:
-
-   ```bash
-   cat ${CLAUDE_PLUGIN_ROOT}/templates/pipelines/pipeline.html
-   ```
-
-5. Delegate to the `adam` sub-agent in pipeline-spec mode:
-
-   > Add a pipeline-spec for `<topic>` at `spec/pipelines/<slug>.html`. The seed template below is your structural starting point — replace every placeholder (`<PIPELINE_SLUG>` / `<PIPELINE_TITLE>` / `<one-line summary…>` / `<YYYY-MM-DD>` inside the JSON metadata block, plus `{{PIPELINE_TITLE}}` / `{{BRIEF}}` / `{{AREA}}` / `{{ACTOR}}` in the HTML body) and the placeholder Mermaid `flowchart TD` block with the actual workflow. Keep the section order (Flow → Brief → Steps → Touched surfaces → Failure modes); drop sections that don't apply rather than inventing content. The file MUST stand alone in a browser (it loads Mermaid from a CDN), and its `<script type="application/adam-pipeline+json" id="pipeline-meta">` block MUST stay parseable JSON — the manifest updater reads it.
-   >
-   > Path hints from the user (use these to ground the Steps + Touched surfaces sections):
-   >
-   > ```
-   > <path hints>
-   > ```
-   >
-   > Seed template (verbatim, replace placeholders):
-   >
-   > ```html
-   > <contents of templates/pipelines/pipeline.html>
-   > ```
-   >
-   > Do NOT touch `spec/INDEX.md` or the `CLAUDE.md` spec table — pipeline-specs live in `spec/pipelines.html`, not the markdown index.
-
-6. Once the file is written, refresh the viewer manifest:
-
-   ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/scripts/tools/update-pipelines-manifest.sh "$PWD"
-   ```
-
-   The script walks `spec/pipelines/*.html`, extracts each file's `pipeline-meta` JSON, and rewrites the manifest block inside `spec/pipelines.html` between the `<!-- BEGIN MANIFEST -->` / `<!-- END MANIFEST -->` sentinels. If it reports any `errors[]` (e.g. malformed JSON in the new file), surface them and ask the agent to fix.
-
-7. Tell the user the path they can open in a browser: `spec/pipelines.html` (the viewer auto-selects the new pipeline if they pass `#<slug>` in the fragment) or `spec/pipelines/<slug>.html` (standalone view).
-
 ## Frontmatter for the new spec
 
 ```
@@ -139,6 +96,4 @@ Show the agent's final report to the user. Then one line:
 
 > If this concept replaces or overlaps with an existing spec, run `/adam:spec-update` to reconcile.
 
-For pipeline-spec mode the "follow-up" line is instead:
-
-> Open `spec/pipelines.html` in a browser to navigate, or `spec/pipelines/<slug>.html` standalone. Re-run with `/adam:spec-update spec/pipelines/<slug>.html` when the workflow changes.
+(Pipeline-spec mode has its own follow-up line — see `_pipeline-mode.md`.)

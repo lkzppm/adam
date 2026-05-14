@@ -11,7 +11,7 @@ Reconcile `spec/*.md` and `CLAUDE.md` against the current state of the code.
 
 - **No argument** → audit all markdown specs, rewrite drifted ones, refresh INDEX + CLAUDE.md table. Pipeline-specs (HTML under `spec/pipelines/`) are **not** swept in this mode — they describe user-facing workflows, not code symbols, so the anchor-drift check would always treat them as `unchecked` and the agent has no signal to rewrite them. Update pipelines with the single-path form below.
 - **Single path / topic argument**:
-  - If the path matches `spec/pipelines/<slug>.html` → update that pipeline-spec, then re-run `update-pipelines-manifest.sh`. INDEX + CLAUDE.md are untouched.
+  - If the path matches `spec/pipelines/<slug>.html` → **`Read` `${CLAUDE_PLUGIN_ROOT}/skills/spec-update/_pipeline-mode.md` and follow it.** Skip the rest of this file. Without a pipeline path, do NOT load that file.
   - Otherwise → update only that markdown spec, then refresh INDEX + table.
 
 ## Preconditions
@@ -74,25 +74,7 @@ Delegate to the `adam` sub-agent. The dispatch shape depends on what Pre-step 2 
 
 > Update spec/<topic>.md against the current code at <paths>. Then refresh the row in spec/INDEX.md and CLAUDE.md (re-count tokens for that spec). If the spec already has an `anchors:` frontmatter block, refresh it to match the new code state.
 
-**Pipeline-spec mode** (user passed `spec/pipelines/<slug>.html`):
-
-Pipeline-specs are HTML walkthroughs (`spec/pipelines/<slug>.html`) — not markdown, not anchored to symbols. They don't participate in the anchor-drift check, the spec-lint MCP, or the spec-graph xref. Skip Pre-step 1 and Pre-step 2 entirely; dispatch the agent like so:
-
-> Update the pipeline-spec at `spec/pipelines/<slug>.html`. It is a self-contained HTML walkthrough — the user's intent and the path hints below describe what about the workflow has changed (new step, removed actor, refactored failure mode, etc.). Edit the file in place. Preserve the `<script type="application/adam-pipeline+json" id="pipeline-meta">` JSON block — it powers the viewer's sidebar — but bump its `updated` field to today. Mermaid diagram lives inside `<div class="mermaid">…</div>`; rewrite it as needed but keep the syntax valid. Do NOT touch `spec/INDEX.md` or the CLAUDE.md spec table.
->
-> Path hints / change description:
->
-> ```
-> <whatever the user provided>
-> ```
-
-After the agent finishes, refresh the viewer manifest:
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/tools/update-pipelines-manifest.sh "$PWD"
-```
-
-Surface any `errors[]` it reports (typically a JSON parse error if the agent broke the `pipeline-meta` block) and ask the agent to fix.
+(Pipeline-spec mode lives in `_pipeline-mode.md` — load it only when the path argument matches `spec/pipelines/<slug>.html`.)
 
 ## Drift signals to look for
 
